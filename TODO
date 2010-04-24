@@ -1,0 +1,20 @@
+* mouse-1 or RET in the call list should mark call as old, on message
+  it should mark it as read
+
+* resolve peer number for calls with opimd $phonenumber query
+
+* Make <TAB> focus the nearest button, and M-<TAB> previous
+
+* Give user information about number of parts and chars left when
+  composing a message
+
+* Optionally provide info about unread messages and missed calls in
+  the global mode line (the modeline item should be clickable and
+  switch to the call buffer if there's an active call, to the calllist
+  if there're new missed calls, to the message list if there're unread
+  messages, otherwise to the status buffer)
+
+* Provide customisation means for contact list format
+
+* "Call" and "Message" in contact list should honor the "point": it
+  should specify which phone-number (or even sip/email) to use
