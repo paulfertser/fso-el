@@ -77,6 +77,11 @@
   :type 'boolean
   :group 'fso)
 
+(defcustom fso-gsm-status-properties '("provider" "strength" "registration" "act")
+  "List of Network.Status properties to be displayed in the Status buffer"
+  :type '(repeat string)
+  :group 'fso)
+
 ;; --
 
 (defvar fso-status-buffer "*FSO Status*")
@@ -281,8 +286,9 @@ CallData is an assoc list of (Field . Value)")
     (let ((buffer-read-only nil))
       (erase-buffer)
       (mapc (lambda (f)
-	      (insert (format "%s: %s\n" (car f) (cdr f))))
-	    fso-gsm-current-network-status)
+	      (let ((prop (assoc f fso-gsm-current-network-status)))
+		(insert (format "%s: %s\n" (car prop) (cdr prop)))))
+	    fso-gsm-status-properties)
       (insert "\n")
       (insert-button (format "Unread messages: %s" (fso-num-or-na fso-pim-current-unread-messages)))
       (insert "  ")
