@@ -321,8 +321,18 @@ CallData is an assoc list of (Field . Value)")
       (progn
 	(let ((call (cdr (assq call-id fso-gsm-calls))))
 	  (mapc (lambda (f)
-		  (insert (format "%s: %s\n" (car f) (cdr f))))
-		call))
+		  (insert (format "%s: %s\n" (car f) (cdr f)))
+		  (if (equal "peer" (car f))
+		      (let ((query-path
+			     (fso-call-pim-contacts "Query" `((:dict-entry "$phonenumber" (:variant ,(cdr f)))))))
+			(condition-case nil
+			    (insert (format "Name: %s\n"
+					    (cdr
+					     (assoc "Name" (fso-pim-entry-to-assoc
+							    (fso-call-pim-contacts-query query-path "GetResult"))))))
+			  (error nil))
+			(fso-call-pim-contacts-query query-path "Dispose"))))
+		  call))
 	(insert-button "Activate" 'action (fso-gsm-call-lambda "Activate" call-id)
 		       'follow-link t)
 	(insert "  ")
@@ -416,7 +426,11 @@ CallData is an assoc list of (Field . Value)")
     (let ((ewoc (ewoc-create 'calllist-pp)))
       (set (make-local-variable 'calllist-ewoc) ewoc)
       (mapc (lambda (x) (ewoc-enter-last ewoc (car x)))
-	    fso-pim-calls))))
+	    fso-pim-calls))
+    (setq header-line-format
+	  (propertize "Status"
+		      'keymap '(keymap (header-line keymap (mouse-1 . (lambda () (switch-to-buffer fso-status-buffer)))))
+		      'mouse-face 'mode-line-highlight))))
 
 (defun contact-pp (contact-id)
   (if contact-id
