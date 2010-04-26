@@ -95,6 +95,8 @@
 (defvar fso-calls-buffer "*FSO Calls*")
 (defvar fso-gsm-current-network-status nil
   "Provides information about current gsm network status in an assoc list")
+(defvar fso-gsm-current-pdp-status nil
+  "Provides information about current pdp (GPRS) status in an assoc list")
 (defvar fso-gsm-current-network-status-hooks nil
   "Hooks to run on network status change")
 (defvar fso-pim-current-unread-messages nil
@@ -148,6 +150,23 @@ CallData is an assoc list of (Field . Value)")
          "org.freesmartphone.ogsmd"
          "/org/freesmartphone/GSM/Device"
          "org.freesmartphone.GSM.Call"
+         method :timeout 60000 args))
+
+(defun fso-register-signal-gsm-pdp (method function)
+  (dbus-register-signal
+   :system
+   "org.freesmartphone.ogsmd"
+   "/org/freesmartphone/GSM/Device"
+   "org.freesmartphone.GSM.PDP"
+   method
+   function))
+
+(defun fso-call-gsm-pdp (method &rest args)
+  (apply 'dbus-call-method
+         :system
+         "org.freesmartphone.ogsmd"
+         "/org/freesmartphone/GSM/Device"
+         "org.freesmartphone.GSM.PDP"
          method :timeout 60000 args))
 
 (defun fso-call-gsm-device (method &rest args)
@@ -255,7 +274,8 @@ CallData is an assoc list of (Field . Value)")
 	 (fso-register-signal-network "Status" 'fso-gsm-handle-status-change)
 	 (fso-register-signal-pim-messages "UnreadMessages" 'fso-pim-handle-unread-messages)
 	 (fso-register-signal-pim-calls "NewMissedCalls" 'fso-pim-handle-new-missed-calls)
-	 (fso-register-signal-gsm-call "CallStatus" 'fso-gsm-handle-call-status))))
+	 (fso-register-signal-gsm-call "CallStatus" 'fso-gsm-handle-call-status)
+	 (fso-register-signal-gsm-pdp "ContextStatus" 'fso-gsm-handle-pdp-status))))
 
 (defun fso-unregister-signals ()
   (mapc 'dbus-unregister-object fso-registered-signals))
@@ -280,6 +300,14 @@ CallData is an assoc list of (Field . Value)")
 
 ;; --
 
+(defun fso-gsm-handle-pdp-status (status properties)
+  (setq fso-gsm-current-pdp-status
+	(cons (cons "status" status)
+	      (fso-dbus-dict-to-assoc properties))))
+
+(defun fso-gsm-get-context-status ()
+  (fso-gsm-handle-pdp-status (fso-call-gsm-pdp "GetContextStatus")))
+
 (defun fso-num-or-na (d)
   (if d
       (format "%d" d)
@@ -294,7 +322,11 @@ CallData is an assoc list of (Field . Value)")
 	      (let ((prop (assoc f fso-gsm-current-network-status)))
 		(insert (format "%s: %s\n" (car prop) (cdr prop)))))
 	    fso-gsm-status-properties)
-      (insert "\n")
+      (insert (format "GPRS: %s   " (cdr (assoc "status" fso-gsm-current-pdp-status))))
+      (insert-button "On" 'action 'fso-gsm-pdp-on 'follow-link t)      
+      (insert "   ")
+      (insert-button "Off" 'action 'fso-gsm-pdp-off 'follow-link t)
+      (insert "\n\n")
       (insert-button (format "Unread messages: %s" (fso-num-or-na fso-pim-current-unread-messages)))
       (insert "  ")
       (insert-button (format "Missed calls: %s" (fso-num-or-na fso-pim-current-missed-calls))
@@ -304,6 +336,14 @@ CallData is an assoc list of (Field . Value)")
 	  (progn
 	    (insert "\n\n         ")
 	    (insert-image fso-hooker-image))))))
+
+(defun fso-gsm-pdp-on (b)
+  (interactive)
+  (fso-call-gsm-pdp "ActivateContext"))
+
+(defun fso-gsm-pdp-off (b)
+  (interactive)
+  (fso-call-gsm-pdp "DeactivateContext"))
 
 (defun fso-gsm-no-calls-p ()
   (defun fso-gsm-no-calls-p-r (l)
@@ -636,6 +676,9 @@ CallData is an assoc list of (Field . Value)")
     (fso-create-calllist-buffer)
     (fso-create-contacts-buffer)
     (fso-create-calls-buffer)
+    (if fso-pdp-apn
+	(fso-call-gsm-pdp "SetCredentials" fso-pdp-apn
+			  fso-pdp-username fso-pdp-password))
     (fso-register-signals)))
 
 (provide 'fso)
