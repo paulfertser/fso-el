@@ -446,7 +446,7 @@ CallData is an assoc list of (Field . Value)")
 	    fso-pim-calls))
     (setq header-line-format
 	  (propertize "Status"
-		      'keymap '(keymap (header-line keymap (mouse-1 . (lambda () (switch-to-buffer fso-status-buffer)))))
+		      'keymap '(keymap (header-line keymap (mouse-1 . (lambda () (interactive) (switch-to-buffer fso-status-buffer)))))
 		      'mouse-face 'mode-line-highlight))))
 
 (defun contact-pp (contact-id)
@@ -474,12 +474,16 @@ CallData is an assoc list of (Field . Value)")
 	(mapc (lambda (x) (ewoc-enter-last ewoc (car x))) contacts)))
     (setq header-line-format
 	  (concat
+	   (propertize "Delete"
+		       'keymap '(keymap (header-line keymap (mouse-1 . fso-gsm-contacts-call)))
+		       'mouse-face 'mode-line-highlight)
+	   "    "
 	   (propertize "Call"
 		       'keymap '(keymap (header-line keymap (mouse-1 . fso-gsm-contacts-call)))
 		       'mouse-face 'mode-line-highlight)
 	   "    "
 	   (propertize "Status"
-		       'keymap '(keymap (header-line keymap (mouse-1 . (lambda () (switch-to-buffer fso-status-buffer)))))
+		       'keymap '(keymap (header-line keymap (mouse-1 . (lambda () (interactive) (switch-to-buffer fso-status-buffer)))))
 		       'mouse-face 'mode-line-highlight)))))
 
 (defun fso-gsm-handle-status-change (status)
