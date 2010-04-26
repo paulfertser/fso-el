@@ -296,6 +296,15 @@ CallData is an assoc list of (Field . Value)")
 		     'action (lambda (x) (interactive) (fso-pim-show-calls))
 		     'follow-link t))))
 
+(defun fso-gsm-no-calls-p ()
+  (defun fso-gsm-no-calls-p-r (l)
+    (cond
+     ((not l) t)
+     ((not
+       (equal "RELEASE" (cdr (assoc "status" (car l))))) nil)
+     (t (fso-gsm-no-calls-p-r (cdr l)))))
+(fso-gsm-no-calls-p-r fso-gsm-calls))
+
 (defun fso-gsm-calls-add-new-id (id status properties)
   (setq fso-gsm-calls
 	(assq-delete-all id fso-gsm-calls))
@@ -307,12 +316,14 @@ CallData is an assoc list of (Field . Value)")
 
 (defun fso-gsm-handle-call-status (id status properties)
   (save-excursion
-    (if fso-gsm-popup-calls
-	(fso-gsm-show-calls)
-      (if (not (get-buffer fso-calls-buffer))
-	  (fso-create-calls-buffer))
-      (set-buffer fso-calls-buffer))
     (fso-gsm-calls-add-new-id id status properties)
+    (if fso-gsm-popup-calls
+	(if (fso-gsm-no-calls-p)
+	    (replace-buffer-in-windows fso-calls-buffer)
+	  (fso-gsm-show-calls))
+      (if (not (get-buffer fso-calls-buffer))
+	  (fso-create-calls-buffer)))
+    (set-buffer fso-calls-buffer)
     (if (ewoc-collect calls-ewoc
 		      (lambda (x) (eq id x)))
 	(ewoc-map (lambda (x) (eq id x))
