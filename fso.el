@@ -82,6 +82,11 @@
   :type '(repeat string)
   :group 'fso)
 
+(defcustom fso-hooker-image-path ""
+  "Provide the path to the hooker image, e.g. ~/.fso-el/hooker.jpg"
+  :type 'file
+  :group 'fso)
+
 ;; --
 
 (defvar fso-status-buffer "*FSO Status*")
@@ -294,7 +299,11 @@ CallData is an assoc list of (Field . Value)")
       (insert "  ")
       (insert-button (format "Missed calls: %s" (fso-num-or-na fso-pim-current-missed-calls))
 		     'action (lambda (x) (interactive) (fso-pim-show-calls))
-		     'follow-link t))))
+		     'follow-link t)
+      (if fso-hooker-image
+	  (progn
+	    (insert "\n\n         ")
+	    (insert-image fso-hooker-image))))))
 
 (defun fso-gsm-no-calls-p ()
   (defun fso-gsm-no-calls-p-r (l)
@@ -619,6 +628,10 @@ CallData is an assoc list of (Field . Value)")
   (interactive)
   (if (fso-alive-p)
       (switch-to-buffer fso-status-buffer)
+    (if (and fso-hooker-image-path
+	     (not (equal "" fso-hooker-image-path)))
+	(defvar fso-hooker-image
+	  (find-image `((:type jpeg :file ,fso-hooker-image-path)))))
     (fso-create-status-buffer)
     (fso-create-calllist-buffer)
     (fso-create-contacts-buffer)
