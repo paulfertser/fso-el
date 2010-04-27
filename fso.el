@@ -275,7 +275,8 @@ CallData is an assoc list of (Field . Value)")
 	 (fso-register-signal-pim-messages "UnreadMessages" 'fso-pim-handle-unread-messages)
 	 (fso-register-signal-pim-calls "NewMissedCalls" 'fso-pim-handle-new-missed-calls)
 	 (fso-register-signal-gsm-call "CallStatus" 'fso-gsm-handle-call-status)
-	 (fso-register-signal-gsm-pdp "ContextStatus" 'fso-gsm-handle-pdp-status))))
+	 (fso-register-signal-gsm-pdp "ContextStatus" 'fso-gsm-handle-pdp-status)
+	 (fso-register-signal-network "IncomingUssd" 'fso-gsm-handle-incoming-ussd))))
 
 (defun fso-unregister-signals ()
   (mapc 'dbus-unregister-object fso-registered-signals))
@@ -299,6 +300,9 @@ CallData is an assoc list of (Field . Value)")
    dict))
 
 ;; --
+
+(defun fso-gsm-handle-incoming-ussd (mode message)
+  (with-output-to-temp-buffer "Incoming USSD" (print message)))
 
 (defun fso-gsm-handle-pdp-status (status properties)
   (setq fso-gsm-current-pdp-status
@@ -505,9 +509,17 @@ CallData is an assoc list of (Field . Value)")
 			(cdr (assoc "Name" contactentry))
 			(cdr (assoc "Phone" contactentry)))))))
 
+(defun fso-gsm-initiate-call (number)
+  (interactive "sNumber to dial: ")
+  (if (let ((len (length number)))
+	(or (<= len 2)
+	    (char-equal ?# (elt number (- len 1)))))
+      (fso-call-gsm-network "SendUssdRequest" number)
+    (fso-call-gsm-call "Initiate" number "voice")))
+
 (defun fso-gsm-contacts-call ()
   (interactive)
-  (fso-call-gsm-call "Initiate" (cdr (assoc "Phone" (cdr (assq (ewoc-data (ewoc-locate contacts-ewoc)) fso-pim-contacts)))) "voice"))
+  (fso-gsm-initiate-call (cdr (assoc "Phone" (cdr (assq (ewoc-data (ewoc-locate contacts-ewoc)) fso-pim-contacts))))))
 
 (defun fso-create-contacts-buffer ()
   (save-excursion
