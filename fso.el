@@ -512,6 +512,11 @@ CallData is an assoc list of (Field . Value)")
 ;;		    (insert (format "N: %s\n" (cdr (assoc "Name" (assq (cdr f) fso-pim-contacts)))))))
 ;;	      callentry)))
 
+(defun fso-pim-call-selected-call ()
+  (interactive)
+  (fso-gsm-initiate-call
+   (cdr (assoc "Peer" (assq (ewoc-data (ewoc-locate calllist-ewoc)) fso-pim-calls)))))
+
 (defun fso-pim-delete-selected-call ()
   (interactive)
   (fso-call-pim-call (ewoc-data (ewoc-locate calllist-ewoc)) "Delete"))
@@ -530,6 +535,10 @@ CallData is an assoc list of (Field . Value)")
 	  (concat
 	   (propertize "Status"
 		       'keymap '(keymap (header-line keymap (mouse-1 . (lambda () (interactive) (switch-to-buffer fso-status-buffer)))))
+		       'mouse-face 'mode-line-highlight)
+	   "  "
+	   (propertize "Call"
+		       'keymap '(keymap (header-line keymap (mouse-1 . fso-pim-call-selected-call)))
 		       'mouse-face 'mode-line-highlight)
 	   "  "
 	   (propertize "Delete"
