@@ -390,8 +390,8 @@ CallData is an assoc list of (Field . Value)")
 		  calls-ewoc)
       (ewoc-enter-first calls-ewoc id))))
 
-(defmacro fso-gsm-call-lambda (methodname callid)
-  `(lambda (x) (interactive) (fso-call-gsm-call ,methodname :int32 ,(eval callid))))
+(defun fso-gsm-call-lambda (methodname callid)
+  (list 'lambda '(x) '(interactive) `(fso-call-gsm-call ,methodname :int32 ,callid)))
 
 (defun calls-pp (call-id)
   (if call-id
