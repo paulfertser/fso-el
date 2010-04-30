@@ -201,14 +201,6 @@ CallData is an assoc list of (Field . Value)")
          "org.freesmartphone.PIM.ContactQuery"
          method :timeout 60000 args))
 
-(defun fso-call-pim-contacts (method &rest args)
-  (apply 'dbus-call-method
-         :system
-         "org.freesmartphone.opimd"
-         "/org/freesmartphone/PIM/Contacts"
-         "org.freesmartphone.PIM.Contacts"
-         method :timeout 60000 args))
-
 (defun fso-call-pim-calls-query (query-path method &rest args)
   (apply 'dbus-call-method
          :system
@@ -233,14 +225,6 @@ CallData is an assoc list of (Field . Value)")
    "org.freesmartphone.PIM.Calls"
    method
    function))
-
-(defun fso-call-pim-calls (method &rest args)
-  (apply 'dbus-call-method
-         :system
-         "org.freesmartphone.opimd"
-         "/org/freesmartphone/PIM/Calls"
-         "org.freesmartphone.PIM.Calls"
-         method :timeout 60000 args))
 
 (defun fso-call-pim-call (calln method &rest args)
   (apply 'dbus-call-method
@@ -313,7 +297,7 @@ CallData is an assoc list of (Field . Value)")
 	      (fso-dbus-dict-to-assoc properties))))
 
 (defun fso-gsm-get-context-status ()
-  (fso-gsm-handle-pdp-status (fso-call-gsm-pdp "GetContextStatus")))
+  (apply 'fso-gsm-handle-pdp-status (fso-call-gsm-pdp "GetContextStatus")))
 
 (defun fso-pim-path-to-id (path)
   (string-match "[0-9]*$" path)
