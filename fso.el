@@ -276,7 +276,10 @@ CallData is an assoc list of (Field . Value)")
 	 (fso-register-signal-pim-calls "NewMissedCalls" 'fso-pim-handle-new-missed-calls)
 	 (fso-register-signal-gsm-call "CallStatus" 'fso-gsm-handle-call-status)
 	 (fso-register-signal-gsm-pdp "ContextStatus" 'fso-gsm-handle-pdp-status)
-	 (fso-register-signal-network "IncomingUssd" 'fso-gsm-handle-incoming-ussd))))
+	 (fso-register-signal-network "IncomingUssd" 'fso-gsm-handle-incoming-ussd)
+	 (fso-register-signal-pim-calls "UpdatedCall" 'fso-pim-handle-updated-call)
+	 (fso-register-signal-pim-calls "NewCall" 'fso-pim-handle-new-call)
+	 (fso-register-signal-pim-calls "DeletedCall" 'fso-pim-handle-deleted-call))))
 
 (defun fso-unregister-signals ()
   (mapc 'dbus-unregister-object fso-registered-signals))
@@ -312,6 +315,10 @@ CallData is an assoc list of (Field . Value)")
 (defun fso-gsm-get-context-status ()
   (fso-gsm-handle-pdp-status (fso-call-gsm-pdp "GetContextStatus")))
 
+(defun fso-pim-path-to-id (path)
+  (string-match "[0-9]*$" path)
+  (string-to-number (match-string 0 path)))
+
 (defun fso-num-or-na (d)
   (if d
       (format "%d" d)
@@ -327,7 +334,7 @@ CallData is an assoc list of (Field . Value)")
 		(insert (format "%s: %s\n" (car prop) (cdr prop)))))
 	    fso-gsm-status-properties)
       (insert (format "GPRS: %s   " (cdr (assoc "status" fso-gsm-current-pdp-status))))
-      (insert-button "On" 'action 'fso-gsm-pdp-on 'follow-link t)      
+      (insert-button "On" 'action 'fso-gsm-pdp-on 'follow-link t)
       (insert "   ")
       (insert-button "Off" 'action 'fso-gsm-pdp-off 'follow-link t)
       (insert "\n\n")
@@ -453,6 +460,38 @@ CallData is an assoc list of (Field . Value)")
 		       'keymap '(keymap (header-line keymap (mouse-1 . fso-gsm-join)))
 		       'mouse-face 'mode-line-highlight)))))
 
+(defmacro fso-do-in-calllist (func &rest args)
+  `(save-excursion
+    (condition-case nil
+	(progn
+	  (set-buffer fso-calllist-buffer)
+	  (funcall ,func ,@args))
+      (error nil))))
+
+(defun fso-pim-handle-new-call (path)
+  (let ((entryid (fso-pim-path-to-id path)))
+    (setq fso-pim-calls
+	  (nconc fso-pim-calls
+		 (list (fso-pim-entry-to-assoc (fso-call-pim-call entryid "GetContent")))))
+    (fso-do-in-calllist 'ewoc-invalidate
+			calllist-ewoc (ewoc-enter-first calllist-ewoc entryid))))
+
+(defun fso-pim-handle-updated-call (path query)
+  (let* ((entryid (fso-pim-path-to-id path))
+	 (entry (assq entryid fso-pim-calls)))
+    (if entry
+	(progn
+	  (setcdr entry
+		  (cdr (fso-pim-entry-to-assoc (fso-call-pim-call entryid "GetContent"))))
+	  (fso-do-in-calllist 'ewoc-map
+			      (lambda (e id) (eq e id)) calllist-ewoc entryid)))))
+
+(defun fso-pim-handle-deleted-call (path)
+  (let ((entryid (fso-pim-path-to-id path)))
+    (assq-delete-all entryid fso-pim-calls)
+    (fso-do-in-calllist 'ewoc-filter
+			calllist-ewoc (lambda (e id) (not (eq e id))) entryid)))
+
 (defun fso-pim-calls-mark-old ()
   (interactive)
   (fso-call-pim-call
@@ -489,6 +528,9 @@ CallData is an assoc list of (Field . Value)")
 ;;		    (insert (format "N: %s\n" (cdr (assoc "Name" (assq (cdr f) fso-pim-contacts)))))))
 ;;	      callentry)))
 
+(defun fso-pim-delete-selected-call ()
+  (interactive)
+  (fso-call-pim-call (ewoc-data (ewoc-locate calllist-ewoc)) "Delete"))
 
 (defun fso-create-calllist-buffer ()
   (fso-pim-get-all-calls)
@@ -501,9 +543,14 @@ CallData is an assoc list of (Field . Value)")
       (mapc (lambda (x) (ewoc-enter-last ewoc (car x)))
 	    fso-pim-calls))
     (setq header-line-format
-	  (propertize "Status"
-		      'keymap '(keymap (header-line keymap (mouse-1 . (lambda () (interactive) (switch-to-buffer fso-status-buffer)))))
-		      'mouse-face 'mode-line-highlight))))
+	  (concat
+	   (propertize "Status"
+		       'keymap '(keymap (header-line keymap (mouse-1 . (lambda () (interactive) (switch-to-buffer fso-status-buffer)))))
+		       'mouse-face 'mode-line-highlight)
+	   "  "
+	   (propertize "Delete"
+		       'keymap '(keymap (header-line keymap (mouse-1 . fso-pim-delete-selected-call)))
+		       'mouse-face 'mode-line-highlight)))))
 
 (defun contact-pp (contact-id)
   (if contact-id
