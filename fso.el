@@ -476,9 +476,12 @@ CallData is an assoc list of (Field . Value)")
 		  (if (eq (cdr (assoc "New" callentry)) 1)
 		      "new"
 		    "old")
-		  (format-time-string "%c"
-				      (decode-time (seconds-to-time
-						    (cdr (assoc "Timestamp" callentry))))))
+		  (condition-case nil
+		      (format-time-string "%c"
+					  (seconds-to-time
+					   (float
+					    (cdr (assoc "Timestamp" callentry)))))
+		    (error (format "%d" callentry-id))))
 	  'keymap '(keymap (mouse-1 . fso-pim-calls-mark-old) (13 . fso-pim-calls-mark-old)))))))
 ;;	(mapc (lambda (f)
 ;;		(insert (format "%s: %s\n" (car f) (cdr f)))
