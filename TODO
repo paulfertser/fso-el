@@ -1,7 +1,7 @@
+* Make "buttons" compatible with drag-scrolling
+
 * mouse-1 or RET in the call list should mark call as old, on message
   it should mark it as read
-
-* resolve peer number for calls with opimd $phonenumber query
 
 * Make <TAB> focus the nearest button, and M-<TAB> previous
 
