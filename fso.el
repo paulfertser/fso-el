@@ -369,11 +369,11 @@ CallData is an assoc list of (Field . Value)")
       (if (not (get-buffer fso-calls-buffer))
 	  (fso-create-calls-buffer)))
     (set-buffer fso-calls-buffer)
-    (if (ewoc-collect calls-ewoc
+    (if (ewoc-collect buffer-ewoc
 		      (lambda (x) (eq id x)))
 	(ewoc-map (lambda (x) (eq id x))
-		  calls-ewoc)
-      (ewoc-enter-first calls-ewoc id))))
+		  buffer-ewoc)
+      (ewoc-enter-first buffer-ewoc id))))
 
 (defun fso-gsm-call-lambda (methodname callid)
   (list 'lambda '(x) '(interactive) `(fso-call-gsm-call ,methodname :int32 ,callid)))
@@ -423,10 +423,11 @@ CallData is an assoc list of (Field . Value)")
 (defun fso-create-calls-buffer ()
   (save-excursion
     (set-buffer (get-buffer-create fso-calls-buffer))
+    (fso-mode)
     (setq buffer-read-only t)
     (buffer-disable-undo)
     (let ((ewoc (ewoc-create 'calls-pp)))
-      (set (make-local-variable 'calls-ewoc) ewoc))
+      (set (make-local-variable 'buffer-ewoc) ewoc))
     (setq header-line-format
 	  (concat
 	   (propertize "HoldActive"
@@ -459,7 +460,7 @@ CallData is an assoc list of (Field . Value)")
 	  (nconc fso-pim-calls
 		 (list (fso-pim-entry-to-assoc (fso-call-pim-call entryid "GetContent")))))
     (fso-do-in-calllist 'ewoc-invalidate
-			calllist-ewoc (ewoc-enter-first calllist-ewoc entryid))))
+			buffer-ewoc (ewoc-enter-first buffer-ewoc entryid))))
 
 (defun fso-pim-handle-updated-call (path query)
   (let* ((entryid (fso-pim-path-to-id path))
@@ -469,18 +470,18 @@ CallData is an assoc list of (Field . Value)")
 	  (setcdr entry
 		  (cdr (fso-pim-entry-to-assoc (fso-call-pim-call entryid "GetContent"))))
 	  (fso-do-in-calllist 'ewoc-map
-			      (lambda (e id) (eq e id)) calllist-ewoc entryid)))))
+			      (lambda (e id) (eq e id)) buffer-ewoc entryid)))))
 
 (defun fso-pim-handle-deleted-call (path)
   (let ((entryid (fso-pim-path-to-id path)))
     (assq-delete-all entryid fso-pim-calls)
     (fso-do-in-calllist 'ewoc-filter
-			calllist-ewoc (lambda (e id) (not (eq e id))) entryid)))
+			buffer-ewoc (lambda (e id) (not (eq e id))) entryid)))
 
 (defun fso-pim-calls-mark-old ()
   (interactive)
   (fso-call-pim-call
-   (ewoc-data (ewoc-locate calllist-ewoc))
+   (ewoc-data (ewoc-locate buffer-ewoc))
    "Update"
    '((:dict-entry "New" (:variant 0)))))
 
@@ -516,26 +517,30 @@ CallData is an assoc list of (Field . Value)")
 (defun fso-pim-call-selected-call ()
   (interactive)
   (fso-gsm-initiate-call
-   (cdr (assoc "Peer" (assq (ewoc-data (ewoc-locate calllist-ewoc)) fso-pim-calls)))))
+   (cdr (assoc "Peer" (assq (ewoc-data (ewoc-locate buffer-ewoc)) fso-pim-calls)))))
 
 (defun fso-pim-delete-selected-call ()
   (interactive)
-  (fso-call-pim-call (ewoc-data (ewoc-locate calllist-ewoc)) "Delete"))
+  (fso-call-pim-call (ewoc-data (ewoc-locate buffer-ewoc)) "Delete"))
 
 (defun fso-create-calllist-buffer ()
   (fso-pim-get-all-calls)
   (save-excursion
     (set-buffer (get-buffer-create fso-calllist-buffer))
+    (fso-mode)
+    (let ((keymap (copy-keymap (current-local-map))))
+      (define-key keymap "r" 'fso-pim-call-selected-call)
+      (use-local-map keymap))
     (setq buffer-read-only t)
     (buffer-disable-undo)
     (let ((ewoc (ewoc-create 'calllist-pp)))
-      (set (make-local-variable 'calllist-ewoc) ewoc)
+      (set (make-local-variable 'buffer-ewoc) ewoc)
       (mapc (lambda (x) (ewoc-enter-last ewoc (car x)))
 	    fso-pim-calls))
     (setq header-line-format
 	  (concat
 	   (propertize "Status"
-		       'keymap '(keymap (header-line keymap (mouse-1 . (lambda () (interactive) (switch-to-buffer fso-status-buffer)))))
+		       'keymap '(keymap (header-line keymap (mouse-1 . fso-show-status)))
 		       'mouse-face 'mode-line-highlight)
 	   "  "
 	   (propertize "Call"
@@ -563,15 +568,19 @@ CallData is an assoc list of (Field . Value)")
 
 (defun fso-gsm-contacts-call ()
   (interactive)
-  (fso-gsm-initiate-call (cdr (assoc "Phone" (cdr (assq (ewoc-data (ewoc-locate contacts-ewoc)) fso-pim-contacts))))))
+  (fso-gsm-initiate-call (cdr (assoc "Phone" (cdr (assq (ewoc-data (ewoc-locate buffer-ewoc)) fso-pim-contacts))))))
 
 (defun fso-create-contacts-buffer ()
   (save-excursion
     (set-buffer (get-buffer-create fso-contacts-buffer))
+    (fso-mode)
+    (let ((keymap (copy-keymap (current-local-map))))
+      (define-key keymap "\r" 'fso-gsm-contacts-call)
+      (use-local-map keymap))
     (setq buffer-read-only t)
     (buffer-disable-undo)
     (let ((ewoc (ewoc-create 'contact-pp)))
-      (set (make-local-variable 'contacts-ewoc) ewoc)
+      (set (make-local-variable 'buffer-ewoc) ewoc)
       (let ((contacts (sort (copy-sequence fso-pim-contacts)
 			    (lambda (f s) (string<
 					   (cdr (assoc "Name" f))
@@ -652,6 +661,10 @@ CallData is an assoc list of (Field . Value)")
        (save-excursion
          (set-buffer fso-status-buffer)
          (eq major-mode 'fso-mode))))
+
+(defun fso-show-status ()
+  (interactive)
+  (switch-to-buffer fso-status-buffer))
 
 (defun fso-gsm-show-calls ()
   (interactive)
@@ -736,5 +749,22 @@ CallData is an assoc list of (Field . Value)")
 	(fso-call-gsm-pdp "SetCredentials" fso-pdp-apn
 			  fso-pdp-username fso-pdp-password))
     (fso-register-signals)))
+
+(defun fso-ewoc-next ()
+  (interactive)
+  (if buffer-ewoc
+      (ewoc-goto-next buffer-ewoc 1)))
+
+(defun fso-ewoc-prev ()
+  (interactive)
+  (if buffer-ewoc
+      (ewoc-goto-prev buffer-ewoc 1)))
+
+(suppress-keymap fso-mode-map)
+(define-key fso-mode-map "n" 'fso-ewoc-next)
+(define-key fso-mode-map "p" 'fso-ewoc-prev)
+(define-key fso-mode-map "s" 'fso-show-status)
+(define-key fso-mode-map "c" 'fso-pim-show-contacts)
+(define-key fso-mode-map "l" 'fso-pim-show-calls)
 
 (provide 'fso)
