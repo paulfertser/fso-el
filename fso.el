@@ -524,6 +524,7 @@ CallData is an assoc list of (Field . Value)")
   (fso-call-pim-call (ewoc-data (ewoc-locate buffer-ewoc)) "Delete"))
 
 (defun fso-create-calllist-buffer ()
+  (message "FSO: retrieving call log")
   (fso-pim-get-all-calls)
   (save-excursion
     (set-buffer (get-buffer-create fso-calllist-buffer))
@@ -688,6 +689,7 @@ CallData is an assoc list of (Field . Value)")
     (switch-to-buffer fso-status-buffer)
     (fso-mode)
     (buffer-disable-undo)
+    (message "FSO: requesting GSM resource")
     (fso-usage-request-resource-gsm)
     (if fso-auto-register
 	(fso-gsm-set-functionality "full"))
@@ -697,6 +699,7 @@ CallData is an assoc list of (Field . Value)")
     (fso-gsm-get-network-status)
     (fso-pim-get-unread-messages)
     (fso-pim-get-new-missed-calls)
+    (message "FSO: retrieving phonebook")
     (fso-pim-get-all-contacts)
     (setq header-line-format
 	  (concat
@@ -748,7 +751,8 @@ CallData is an assoc list of (Field . Value)")
     (if fso-pdp-apn
 	(fso-call-gsm-pdp "SetCredentials" fso-pdp-apn
 			  fso-pdp-username fso-pdp-password))
-    (fso-register-signals)))
+    (fso-register-signals)
+    (message "FSO initialized successfully")))
 
 (defun fso-ewoc-next ()
   (interactive)
