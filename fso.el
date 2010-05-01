@@ -294,7 +294,8 @@ CallData is an assoc list of (Field . Value)")
 (defun fso-gsm-handle-pdp-status (status properties)
   (setq fso-gsm-current-pdp-status
 	(cons (cons "status" status)
-	      (fso-dbus-dict-to-assoc properties))))
+	      (fso-dbus-dict-to-assoc properties)))
+  (run-hooks 'fso-gsm-current-network-status-hooks))
 
 (defun fso-gsm-get-context-status ()
   (apply 'fso-gsm-handle-pdp-status (fso-call-gsm-pdp "GetContextStatus")))
