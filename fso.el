@@ -492,7 +492,7 @@ CallData is an assoc list of (Field . Value)")
 	 (propertize
 	  (format "%s: %s %s %s\n%s\n"
 		  (or (cdr (assoc "Name"
-				  (assq (cdr (assoc "@contacts" callentry)) fso-pim-contacts)))
+				  (assq (cdr (assoc "@Contacts" callentry)) fso-pim-contacts)))
 		      (cdr (assoc "Peer" callentry)))
 		  (cdr (assoc "Direction" callentry))
 		  (if (eq (cdr (assoc "Answered" callentry)) 1)
@@ -510,7 +510,7 @@ CallData is an assoc list of (Field . Value)")
 	  'keymap '(keymap (mouse-1 . fso-pim-calls-mark-old) (13 . fso-pim-calls-mark-old)))))))
 ;;	(mapc (lambda (f)
 ;;		(insert (format "%s: %s\n" (car f) (cdr f)))
-;;		(if (string= (car f) "@contacts")
+;;		(if (string= (car f) "@Contacts")
 ;;		    (insert (format "N: %s\n" (cdr (assoc "Name" (assq (cdr f) fso-pim-contacts)))))))
 ;;	      callentry)))
 
@@ -627,7 +627,7 @@ CallData is an assoc list of (Field . Value)")
   (let ((query-path (fso-call-pim-contacts "Query" '(:array :signature "{sv}"))))
     (setq fso-pim-contacts
 	  (mapcar 'fso-pim-entry-to-assoc
-		  (fso-call-pim-contacts-query query-path "GetMultipleResults" 10000)))
+		  (fso-call-pim-contacts-query query-path "GetMultipleResults" -1)))
     (fso-call-pim-contacts-query query-path "Dispose")))
 
 (defun fso-pim-get-all-calls ()
@@ -637,7 +637,7 @@ CallData is an assoc list of (Field . Value)")
 						  (:dict-entry "_sortby" (:variant "Timestamp"))))))
     (setq fso-pim-calls
 	  (mapcar 'fso-pim-entry-to-assoc
-		  (fso-call-pim-calls-query query-path "GetMultipleResults" 10000)))
+		  (fso-call-pim-calls-query query-path "GetMultipleResults" -1)))
     (fso-call-pim-calls-query query-path "Dispose")))
 
 (defun fso-usage-request-resource (resource)
