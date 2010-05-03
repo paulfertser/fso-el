@@ -173,6 +173,14 @@ Message is an assoc list of (Field . Value)")
          "org.freesmartphone.GSM.PDP"
          method :timeout 60000 args))
 
+(defun fso-call-gsm-sms (method &rest args)
+  (apply 'dbus-call-method
+         :system
+         "org.freesmartphone.ogsmd"
+         "/org/freesmartphone/GSM/Device"
+         "org.freesmartphone.GSM.SMS"
+         method :timeout 60000 args))
+
 (defun fso-call-gsm-device (method &rest args)
   (apply 'dbus-call-method
          :system
@@ -644,6 +652,17 @@ Message is an assoc list of (Field . Value)")
 	   (propertize "Status"
 		       'keymap '(keymap (header-line keymap (mouse-1 . (lambda () (interactive) (switch-to-buffer fso-status-buffer)))))
 		       'mouse-face 'mode-line-highlight)))))
+
+(defun fso-gsm-send-message (peer content)
+  (interactive "sNumber to send to: \nsContent: ")
+  (let ((gsmid (car (fso-call-gsm-sms "SendTextMessage" peer content t))))
+    (fso-call-pim-messages "Add" `((:dict-entry "Peer" (:variant ,peer))
+				   (:dict-entry "Content" (:variant ,content))
+				   (:dict-entry "Timestamp" (:variant ,(float-time)))
+				   (:dict-entry "New" (:variant 0))
+				   (:dict-entry "Direction" (:variant "out"))
+				   (:dict-entry "Folder" (:variant "SMS"))
+				   (:dict-entry "SMS-message-reference" (:variant ,gsmid))))))
 
 (defun messages-pp (messageentry-id)
   (if messageentry-id
