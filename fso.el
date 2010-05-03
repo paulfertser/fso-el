@@ -93,6 +93,7 @@
 (defvar fso-calllist-buffer "*FSO Calllist*")
 (defvar fso-contacts-buffer "*FSO Contacts*")
 (defvar fso-calls-buffer "*FSO Calls*")
+(defvar fso-messages-buffer "*FSO Messages*")
 (defvar fso-gsm-current-network-status nil
   "Provides information about current gsm network status in an assoc list")
 (defvar fso-gsm-current-pdp-status nil
@@ -113,6 +114,9 @@ ContactData is an assoc list of (Field . Value)")
 (defvar fso-pim-calls nil
   "Variable holding an assoc list of (EntryId . CallData) where
 CallData is an assoc list of (Field . Value)")
+(defvar fso-pim-messages nil
+  "Variable holding an assoc list of (EntryId . Message) where
+Message is an assoc list of (Field . Value)")
 (defvar fso-gsm-calls nil
   "Holds GSM-level calls info (id . ((status . s) (peer . s) ...))")
 
@@ -252,6 +256,14 @@ CallData is an assoc list of (Field . Value)")
          "org.freesmartphone.PIM.Messages"
          method :timeout 60000 args))
 
+(defun fso-call-pim-messages-query (query-path method &rest args)
+  (apply 'dbus-call-method
+         :system
+         "org.freesmartphone.opimd"
+	 query-path
+         "org.freesmartphone.PIM.MessageQuery"
+         method :timeout 60000 args))
+
 (defun fso-register-signals ()
   (setq fso-registered-signals
 	(list
@@ -323,7 +335,9 @@ CallData is an assoc list of (Field . Value)")
       (insert "   ")
       (insert-button "Off" 'action 'fso-gsm-pdp-off 'follow-link t)
       (insert "\n\n")
-      (insert-button (format "Unread messages: %s" (fso-num-or-na fso-pim-current-unread-messages)))
+      (insert-button (format "Unread messages: %s" (fso-num-or-na fso-pim-current-unread-messages))
+		     'action (lambda (x) (interactive) (fso-pim-show-messages))
+		     'follow-link t)
       (insert "  ")
       (insert-button (format "Missed calls: %s" (fso-num-or-na fso-pim-current-missed-calls))
 		     'action (lambda (x) (interactive) (fso-pim-show-calls))
@@ -601,6 +615,43 @@ CallData is an assoc list of (Field . Value)")
 		       'keymap '(keymap (header-line keymap (mouse-1 . (lambda () (interactive) (switch-to-buffer fso-status-buffer)))))
 		       'mouse-face 'mode-line-highlight)))))
 
+(defun messages-pp (messageentry-id)
+  (if messageentry-id
+      (let ((messageentry (cdr (assq messageentry-id fso-pim-messages))))
+	(mapc (lambda (f)
+		(insert (format "%s: %s\n" (car f) (cdr f)))
+		(if (string= (car f) "@Contacts")
+		    (insert (format "N: %s\n" (cdr (assoc "Name" (assq (cdr f) fso-pim-contacts)))))))
+	      messageentry))))
+
+(defun fso-create-messages-buffer ()
+  (message "FSO: retrieving messages")
+  (fso-pim-get-all-messages)
+  (save-excursion
+    (set-buffer (get-buffer-create fso-messages-buffer))
+    (fso-mode)
+    ;; (let ((keymap (copy-keymap (current-local-map))))
+    ;;   (define-key keymap "\r" 'fso-gsm-contacts-call)
+    ;;   (use-local-map keymap))
+    (setq buffer-read-only t)
+    (buffer-disable-undo)
+    (let ((ewoc (ewoc-create 'messages-pp)))
+      (set (make-local-variable 'buffer-ewoc) ewoc)
+      (mapc (lambda (x) (ewoc-enter-last ewoc (car x))) fso-pim-messages))
+    (setq header-line-format
+	  (concat
+	   (propertize "Delete"
+		       'keymap '(keymap (header-line keymap (mouse-1 . fso-gsm-contacts-call)))
+		       'mouse-face 'mode-line-highlight)
+	   "    "
+	   (propertize "Call"
+		       'keymap '(keymap (header-line keymap (mouse-1 . fso-gsm-contacts-call)))
+		       'mouse-face 'mode-line-highlight)
+	   "    "
+	   (propertize "Status"
+		       'keymap '(keymap (header-line keymap (mouse-1 . (lambda () (interactive) (switch-to-buffer fso-status-buffer)))))
+		       'mouse-face 'mode-line-highlight)))))
+
 (defun fso-gsm-handle-status-change (status)
   (setq fso-gsm-current-network-status
 	(fso-dbus-dict-to-assoc status))
@@ -629,6 +680,16 @@ CallData is an assoc list of (Field . Value)")
 	  (mapcar 'fso-pim-entry-to-assoc
 		  (fso-call-pim-contacts-query query-path "GetMultipleResults" -1)))
     (fso-call-pim-contacts-query query-path "Dispose")))
+
+(defun fso-pim-get-all-messages ()
+  (let ((query-path (fso-call-pim-messages "Query" '((:dict-entry "_resolve_phonenumber" (:variant t))
+						  (:dict-entry "_limit" (:variant 100))
+						  (:dict-entry "_sortdesc" (:variant t))
+						  (:dict-entry "_sortby" (:variant "Timestamp"))))))
+    (setq fso-pim-messages
+	  (mapcar 'fso-pim-entry-to-assoc
+		  (fso-call-pim-messages-query query-path "GetMultipleResults" -1)))
+    (fso-call-pim-messages-query query-path "Dispose")))
 
 (defun fso-pim-get-all-calls ()
   (let ((query-path (fso-call-pim-calls "Query" '((:dict-entry "_resolve_phonenumber" (:variant t))
@@ -684,6 +745,12 @@ CallData is an assoc list of (Field . Value)")
   (if (not (get-buffer fso-contacts-buffer))
       (fso-create-contacts-buffer))
   (switch-to-buffer fso-contacts-buffer))
+
+(defun fso-pim-show-messages ()
+  (interactive)
+  (if (not (get-buffer fso-messages-buffer))
+      (fso-create-messages-buffer))
+  (switch-to-buffer fso-messages-buffer))
 
 (defun fso-create-status-buffer ()
     (switch-to-buffer fso-status-buffer)
@@ -748,6 +815,7 @@ CallData is an assoc list of (Field . Value)")
     (fso-create-calllist-buffer)
     (fso-create-contacts-buffer)
     (fso-create-calls-buffer)
+    (fso-create-messages-buffer)
     (if fso-pdp-apn
 	(fso-call-gsm-pdp "SetCredentials" fso-pdp-apn
 			  fso-pdp-username fso-pdp-password))
@@ -768,6 +836,7 @@ CallData is an assoc list of (Field . Value)")
 (define-key fso-mode-map "n" 'fso-ewoc-next)
 (define-key fso-mode-map "p" 'fso-ewoc-prev)
 (define-key fso-mode-map "s" 'fso-show-status)
+(define-key fso-mode-map "m" 'fso-pim-show-messages)
 (define-key fso-mode-map "c" 'fso-pim-show-contacts)
 (define-key fso-mode-map "l" 'fso-pim-show-calls)
 
