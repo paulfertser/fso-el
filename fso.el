@@ -248,6 +248,15 @@ Message is an assoc list of (Field . Value)")
    method
    function))
 
+(defun fso-call-pim-message (id method &rest args)
+  (apply 'dbus-call-method
+         :system
+         "org.freesmartphone.opimd"
+         (concat "/org/freesmartphone/PIM/Messages/"
+		 (number-to-string id))
+         "org.freesmartphone.PIM.Message"
+         method :timeout 60000 args))
+
 (defun fso-call-pim-messages (method &rest args)
   (apply 'dbus-call-method
          :system
@@ -275,7 +284,10 @@ Message is an assoc list of (Field . Value)")
 	 (fso-register-signal-network "IncomingUssd" 'fso-gsm-handle-incoming-ussd)
 	 (fso-register-signal-pim-calls "UpdatedCall" 'fso-pim-handle-updated-call)
 	 (fso-register-signal-pim-calls "NewCall" 'fso-pim-handle-new-call)
-	 (fso-register-signal-pim-calls "DeletedCall" 'fso-pim-handle-deleted-call))))
+	 (fso-register-signal-pim-calls "DeletedCall" 'fso-pim-handle-deleted-call)
+	 (fso-register-signal-pim-messages "UpdatedMessage" 'fso-pim-handle-updated-message)
+	 (fso-register-signal-pim-messages "NewMessage" 'fso-pim-handle-new-message)
+	 (fso-register-signal-pim-messages "DeletedMessage" 'fso-pim-handle-deleted-message))))
 
 (defun fso-unregister-signals ()
   (mapc 'dbus-unregister-object fso-registered-signals))
@@ -460,37 +472,55 @@ Message is an assoc list of (Field . Value)")
 		       'keymap '(keymap (header-line keymap (mouse-1 . fso-gsm-join)))
 		       'mouse-face 'mode-line-highlight)))))
 
-(defmacro fso-do-in-calllist (func &rest args)
+(defmacro fso-do-in-list (buffer func &rest args)
   `(save-excursion
     (condition-case nil
 	(progn
-	  (set-buffer fso-calllist-buffer)
+	  (set-buffer ,buffer)
 	  (funcall ,func ,@args))
       (error nil))))
 
 (defun fso-pim-handle-new-call (path)
-  (let ((entryid (fso-pim-path-to-id path)))
-    (setq fso-pim-calls
-	  (nconc fso-pim-calls
-		 (list (fso-pim-entry-to-assoc (fso-call-pim-call entryid "GetContent")))))
-    (fso-do-in-calllist 'ewoc-invalidate
-			buffer-ewoc (ewoc-enter-first buffer-ewoc entryid))))
+  (fso-pim-handle-new path fso-calllist-buffer 'fso-call-pim-call fso-pim-calls))
 
 (defun fso-pim-handle-updated-call (path query)
+  (fso-pim-handle-updated path fso-calllist-buffer 'fso-call-pim-call fso-pim-calls))
+
+(defun fso-pim-handle-deleted-call (path)
+  (fso-pim-handle-deleted path fso-calllist-buffer fso-pim-calls))
+
+(defun fso-pim-handle-new-message (path)
+  (fso-pim-handle-new path fso-messages-buffer 'fso-call-pim-message fso-pim-messages))
+
+(defun fso-pim-handle-updated-message (path query)
+  (fso-pim-handle-updated path fso-messages-buffer 'fso-call-pim-message fso-pim-messages))
+
+(defun fso-pim-handle-deleted-message (path)
+  (fso-pim-handle-deleted path fso-messages-buffer fso-pim-messages))
+
+(defun fso-pim-handle-new (path buffer getcontentp storage)
+  (let ((entryid (fso-pim-path-to-id path)))
+    (setq storage
+	  (nconc storage
+		 (list (fso-pim-entry-to-assoc (funcall getcontentp entryid "GetContent")))))
+    (fso-do-in-list buffer 'ewoc-invalidate
+		    buffer-ewoc (ewoc-enter-first buffer-ewoc entryid))))
+
+(defun fso-pim-handle-updated (path buffer getcontentp storage)
   (let* ((entryid (fso-pim-path-to-id path))
-	 (entry (assq entryid fso-pim-calls)))
+	 (entry (assq entryid storage)))
     (if entry
 	(progn
 	  (setcdr entry
-		  (cdr (fso-pim-entry-to-assoc (fso-call-pim-call entryid "GetContent"))))
-	  (fso-do-in-calllist 'ewoc-map
-			      (lambda (e id) (eq e id)) buffer-ewoc entryid)))))
+		  (cdr (fso-pim-entry-to-assoc (funcall getcontentp entryid "GetContent"))))
+	  (fso-do-in-list buffer 'ewoc-map
+			  (lambda (e id) (eq e id)) buffer-ewoc entryid)))))
 
-(defun fso-pim-handle-deleted-call (path)
+(defun fso-pim-handle-deleted (path buffer storage)
   (let ((entryid (fso-pim-path-to-id path)))
-    (assq-delete-all entryid fso-pim-calls)
-    (fso-do-in-calllist 'ewoc-filter
-			buffer-ewoc (lambda (e id) (not (eq e id))) entryid)))
+    (assq-delete-all entryid storage)
+    (fso-do-in-list buffer 'ewoc-filter
+		    buffer-ewoc (lambda (e id) (not (eq e id))) entryid)))
 
 (defun fso-pim-calls-mark-old ()
   (interactive)
