@@ -628,6 +628,12 @@ Message is an assoc list of (Field . Value)")
   (interactive)
   (fso-gsm-initiate-call (cdr (assoc "Phone" (cdr (assq (ewoc-data (ewoc-locate buffer-ewoc)) fso-pim-contacts))))))
 
+(defun fso-gsm-contacts-message ()
+  (interactive)
+  (fso-gsm-send-message nil
+			(cdr (assoc "Phone" (cdr (assq (ewoc-data (ewoc-locate buffer-ewoc)) fso-pim-contacts))))
+			(read-string "Message: ")))
+
 (defun fso-create-contacts-buffer ()
   (save-excursion
     (set-buffer (get-buffer-create fso-contacts-buffer))
@@ -653,6 +659,10 @@ Message is an assoc list of (Field . Value)")
 	   (propertize "Call"
 		       'keymap '(keymap (header-line keymap (mouse-1 . fso-gsm-contacts-call)))
 		       'mouse-face 'mode-line-highlight)
+	   "  "
+	   (propertize "Message"
+		       'keymap '(keymap (header-line keymap (mouse-1 . fso-gsm-contacts-message)))
+		       'mouse-face 'mode-line-highlight)
 	   "    "
 	   (propertize "Status"
 		       'keymap '(keymap (header-line keymap (mouse-1 . (lambda () (interactive) (switch-to-buffer fso-status-buffer)))))
@@ -674,15 +684,49 @@ Message is an assoc list of (Field . Value)")
 				  (if request-receipt
 				   `((:dict-entry "SMS-message-reference" (:variant ,gsmid)))
 				   nil)))))
+(defun fso-pim-messages-mark-old ()
+  (interactive)
+  (fso-call-pim-message
+   (ewoc-data (ewoc-locate buffer-ewoc))
+   "Update"
+   '((:dict-entry "New" (:variant 0)))))
 
 (defun messages-pp (messageentry-id)
   (if messageentry-id
       (let ((messageentry (cdr (assq messageentry-id fso-pim-messages))))
-	(mapc (lambda (f)
-		(insert (format "%s: %s\n" (car f) (cdr f)))
-		(if (string= (car f) "@Contacts")
-		    (insert (format "N: %s\n" (cdr (assoc "Name" (assq (cdr f) fso-pim-contacts)))))))
-	      messageentry))))
+	(insert
+	 (propertize
+	  (format "%s %s %s %s\n%s\n"
+		  (or (cdr (assoc "Name"
+				  (assq (cdr (assoc "@Contacts" messageentry)) fso-pim-contacts)))
+		      (cdr (assoc "Peer" messageentry)))
+		  (cdr (assoc "Direction" messageentry))
+		  (if (eq (cdr (assoc "New" messageentry)) 1)
+		      "new"
+		    "old")
+		  (condition-case nil
+		      (format-time-string "%c"
+					  (seconds-to-time
+					   (float
+					    (cdr (assoc "Timestamp" messageentry)))))
+		    (error (format "%d" messageentry-id)))
+		  (cdr (assoc "Content" messageentry)))
+	  'keymap '(keymap (mouse-1 . fso-pim-messages-mark-old) (13 . fso-pim-messages-mark-old)))))))
+
+(defun fso-pim-call-selected-message ()
+  (interactive)
+  (fso-gsm-initiate-call
+   (cdr (assoc "Peer" (assq (ewoc-data (ewoc-locate buffer-ewoc)) fso-pim-messages)))))
+
+(defun fso-pim-delete-selected-message ()
+  (interactive)
+  (fso-call-pim-message (ewoc-data (ewoc-locate buffer-ewoc)) "Delete"))
+
+(defun fso-pim-reply-selected-message ()
+  (interactive)
+  (fso-gsm-send-message nil
+			(cdr (assoc "Peer" (assq (ewoc-data (ewoc-locate buffer-ewoc)) fso-pim-messages)))
+			(read-string "Message: ")))
 
 (defun fso-create-messages-buffer ()
   (message "FSO: retrieving messages")
@@ -690,9 +734,11 @@ Message is an assoc list of (Field . Value)")
   (save-excursion
     (set-buffer (get-buffer-create fso-messages-buffer))
     (fso-mode)
-    ;; (let ((keymap (copy-keymap (current-local-map))))
-    ;;   (define-key keymap "\r" 'fso-gsm-contacts-call)
-    ;;   (use-local-map keymap))
+    (let ((keymap (copy-keymap (current-local-map))))
+      (define-key keymap "r" 'fso-pim-reply-selected-message)
+      (define-key keymap "C" 'fso-pim-call-selected-message)
+      (define-key keymap "d" 'fso-pim-delete-selected-message)
+      (use-local-map keymap))
     (setq buffer-read-only t)
     (buffer-disable-undo)
     (let ((ewoc (ewoc-create 'messages-pp)))
@@ -701,15 +747,19 @@ Message is an assoc list of (Field . Value)")
     (setq header-line-format
 	  (concat
 	   (propertize "Delete"
-		       'keymap '(keymap (header-line keymap (mouse-1 . fso-gsm-contacts-call)))
+		       'keymap '(keymap (header-line keymap (mouse-1 . fso-pim-delete-selected-message)))
 		       'mouse-face 'mode-line-highlight)
 	   "    "
+	   (propertize "Reply"
+		       'keymap '(keymap (header-line keymap (mouse-1 . fso-pim-reply-selected-message)))
+		       'mouse-face 'mode-line-highlight)
+	   "  "
 	   (propertize "Call"
-		       'keymap '(keymap (header-line keymap (mouse-1 . fso-gsm-contacts-call)))
+		       'keymap '(keymap (header-line keymap (mouse-1 . fso-pim-call-selected-message)))
 		       'mouse-face 'mode-line-highlight)
-	   "    "
+	   "  "
 	   (propertize "Status"
-		       'keymap '(keymap (header-line keymap (mouse-1 . (lambda () (interactive) (switch-to-buffer fso-status-buffer)))))
+		       'keymap '(keymap (header-line keymap (mouse-1 . fso-show-status)))
 		       'mouse-face 'mode-line-highlight)))))
 
 (defun fso-gsm-handle-status-change (status)
