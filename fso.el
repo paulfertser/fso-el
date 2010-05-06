@@ -77,6 +77,11 @@
   :type 'boolean
   :group 'fso)
 
+(defcustom fso-gsm-request-receipt nil
+  "Set to true to request message receipts by default"
+  :type 'boolean
+  :group 'fso)
+
 (defcustom fso-gsm-status-properties '("provider" "strength" "registration" "act")
   "List of Network.Status properties to be displayed in the Status buffer"
   :type '(repeat string)
@@ -653,17 +658,22 @@ Message is an assoc list of (Field . Value)")
 		       'keymap '(keymap (header-line keymap (mouse-1 . (lambda () (interactive) (switch-to-buffer fso-status-buffer)))))
 		       'mouse-face 'mode-line-highlight)))))
 
-(defun fso-gsm-send-message (peer content)
-  (interactive "sNumber to send to: \nsContent: ")
+(defun fso-gsm-send-message (toggle-receipt peer content)
+  (interactive "P\nsNumber to send to: \nsContent: ")
   (let* ((message (encode-coding-string content 'utf-8))
-	 (gsmid (car (fso-call-gsm-sms "SendTextMessage" peer message t))))
-    (fso-call-pim-messages "Add" `((:dict-entry "Peer" (:variant ,peer))
-				   (:dict-entry "Content" (:variant ,message))
-				   (:dict-entry "Timestamp" (:variant ,(float-time)))
-				   (:dict-entry "New" (:variant 0))
-				   (:dict-entry "Direction" (:variant "out"))
-				   (:dict-entry "Source" (:variant "SMS"))
-				   (:dict-entry "SMS-message-reference" (:variant ,gsmid))))))
+	 (request-receipt
+	  (if toggle-receipt (not fso-gsm-request-receipt) fso-gsm-request-receipt))
+	 (gsmid (car (fso-call-gsm-sms "SendTextMessage" peer message request-receipt))))
+    (fso-call-pim-messages "Add" (append
+				  `((:dict-entry "Peer" (:variant ,peer))
+				    (:dict-entry "Content" (:variant ,message))
+				    (:dict-entry "Timestamp" (:variant ,(float-time)))
+				    (:dict-entry "New" (:variant 0))
+				    (:dict-entry "Direction" (:variant "out"))
+				    (:dict-entry "Source" (:variant "SMS")))
+				  (if request-receipt
+				   `((:dict-entry "SMS-message-reference" (:variant ,gsmid)))
+				   nil)))))
 
 (defun messages-pp (messageentry-id)
   (if messageentry-id
