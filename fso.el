@@ -699,7 +699,7 @@ Message is an assoc list of (Field . Value)")
   (fso-call-pim-message
    (ewoc-data (ewoc-locate buffer-ewoc))
    "Update"
-   '((:dict-entry "New" (:variant 0)))))
+   '((:dict-entry "MessageRead" (:variant 1)))))
 
 (defun messages-pp (messageentry-id)
   (if messageentry-id
@@ -712,9 +712,9 @@ Message is an assoc list of (Field . Value)")
 				      (fso-pim-resolve-contact (cdr (assoc "Peer" messageentry))))))
 		      (cdr (assoc "Peer" messageentry)))
 		  (cdr (assoc "Direction" messageentry))
-		  (if (eq (cdr (assoc "New" messageentry)) 1)
-		      "new"
-		    "old")
+		  (if (eq (cdr (assoc "MessageRead" messageentry)) 1)
+		      "read"
+		    "unread")
 		  (condition-case nil
 		      (format-time-string "%c"
 					  (seconds-to-time
