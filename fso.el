@@ -130,7 +130,7 @@ Message is an assoc list of (Field . Value)")
 (defun fso-register-signal-network (method function)
   (dbus-register-signal
    :system
-   "org.freesmartphone.ogsmd"
+   nil
    "/org/freesmartphone/GSM/Device"
    "org.freesmartphone.GSM.Network"
    method
@@ -147,7 +147,7 @@ Message is an assoc list of (Field . Value)")
 (defun fso-register-signal-gsm-call (method function)
   (dbus-register-signal
    :system
-   "org.freesmartphone.ogsmd"
+   nil
    "/org/freesmartphone/GSM/Device"
    "org.freesmartphone.GSM.Call"
    method
@@ -164,7 +164,7 @@ Message is an assoc list of (Field . Value)")
 (defun fso-register-signal-gsm-pdp (method function)
   (dbus-register-signal
    :system
-   "org.freesmartphone.ogsmd"
+   nil
    "/org/freesmartphone/GSM/Device"
    "org.freesmartphone.GSM.PDP"
    method
@@ -237,7 +237,7 @@ Message is an assoc list of (Field . Value)")
 (defun fso-register-signal-pim-calls (method function)
   (dbus-register-signal
    :system
-   "org.freesmartphone.opimd"
+   nil
    "/org/freesmartphone/PIM/Calls"
    "org.freesmartphone.PIM.Calls"
    method
@@ -255,7 +255,7 @@ Message is an assoc list of (Field . Value)")
 (defun fso-register-signal-pim-messages (method function)
   (dbus-register-signal
    :system
-   "org.freesmartphone.opimd"
+   nil
    "/org/freesmartphone/PIM/Messages"
    "org.freesmartphone.PIM.Messages"
    method
