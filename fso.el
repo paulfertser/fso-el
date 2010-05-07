@@ -414,6 +414,14 @@ Message is an assoc list of (Field . Value)")
 		  buffer-ewoc)
       (ewoc-enter-first buffer-ewoc id))))
 
+(defun fso-pim-resolve-contact (phone)
+  (let ((query-path
+	 (fso-call-pim-contacts "Query" `((:dict-entry "$phonenumber" (:variant ,phone))))))
+    (condition-case nil
+	(fso-pim-entry-to-assoc
+	 (fso-call-pim-contacts-query query-path "GetResult"))
+      (error nil))))
+
 (defun fso-gsm-call-lambda (methodname callid)
   (list 'lambda '(x) '(interactive) `(fso-call-gsm-call ,methodname :int32 ,callid)))
 
@@ -549,7 +557,8 @@ Message is an assoc list of (Field . Value)")
 	 (propertize
 	  (format "%s: %s %s %s\n%s\n"
 		  (or (cdr (assoc "Name"
-				  (assq (cdr (assoc "@Contacts" callentry)) fso-pim-contacts)))
+				  (or (assq (cdr (assoc "@Contacts" callentry)) fso-pim-contacts)
+				      (fso-pim-resolve-contact (cdr (assoc "Peer" callentry))))))
 		      (cdr (assoc "Peer" callentry)))
 		  (cdr (assoc "Direction" callentry))
 		  (if (eq (cdr (assoc "Answered" callentry)) 1)
@@ -699,7 +708,8 @@ Message is an assoc list of (Field . Value)")
 	 (propertize
 	  (format "%s %s %s %s\n%s\n"
 		  (or (cdr (assoc "Name"
-				  (assq (cdr (assoc "@Contacts" messageentry)) fso-pim-contacts)))
+				  (or (assq (cdr (assoc "@Contacts" messageentry)) fso-pim-contacts)
+				      (fso-pim-resolve-contact (cdr (assoc "Peer" messageentry))))))
 		      (cdr (assoc "Peer" messageentry)))
 		  (cdr (assoc "Direction" messageentry))
 		  (if (eq (cdr (assoc "New" messageentry)) 1)
