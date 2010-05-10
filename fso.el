@@ -956,6 +956,7 @@ Message is an assoc list of (Field . Value)")
       (ewoc-goto-prev buffer-ewoc 1)))
 
 (suppress-keymap fso-mode-map)
+(define-key fso-mode-map "q" 'bury-buffer)
 (define-key fso-mode-map "n" 'fso-ewoc-next)
 (define-key fso-mode-map "p" 'fso-ewoc-prev)
 (define-key fso-mode-map "s" 'fso-show-status)
