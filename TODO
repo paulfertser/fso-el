@@ -17,3 +17,11 @@
 
 * "Call" and "Message" in contact list should honor the "point": it
   should specify which phone-number (or even sip/email) to use
+
+
+Things to consider:
+
+* BBDB integration: how do you expect it to work, usecases, handling
+  differences between opimd and bbdb conceptions
+
+* linphone.el integration (does anyone need that in reality?)
