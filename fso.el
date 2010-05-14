@@ -202,6 +202,24 @@ Message is an assoc list of (Field . Value)")
 	 "org.freesmartphone.Usage"
          method :timeout 60000 args))
 
+(defun fso-register-signal-pim-contacts (method function)
+  (dbus-register-signal
+   :system
+   nil
+   "/org/freesmartphone/PIM/Contacts"
+   "org.freesmartphone.PIM.Contacts"
+   method
+   function))
+
+(defun fso-call-pim-contact (id method &rest args)
+  (apply 'dbus-call-method
+         :system
+         "org.freesmartphone.opimd"
+         (concat "/org/freesmartphone/PIM/Contacts/"
+		 (number-to-string id))
+         "org.freesmartphone.PIM.Contact"
+         method :timeout 60000 args))
+
 (defun fso-call-pim-contacts (method &rest args)
   (apply 'dbus-call-method
          :system
@@ -300,7 +318,10 @@ Message is an assoc list of (Field . Value)")
 	 (fso-register-signal-pim-calls "DeletedCall" 'fso-pim-handle-deleted-call)
 	 (fso-register-signal-pim-messages "UpdatedMessage" 'fso-pim-handle-updated-message)
 	 (fso-register-signal-pim-messages "NewMessage" 'fso-pim-handle-new-message)
-	 (fso-register-signal-pim-messages "DeletedMessage" 'fso-pim-handle-deleted-message))))
+	 (fso-register-signal-pim-messages "DeletedMessage" 'fso-pim-handle-deleted-message)
+	 (fso-register-signal-pim-contacts "UpdatedContact" 'fso-pim-handle-updated-contact)
+	 (fso-register-signal-pim-contacts "NewContact" 'fso-pim-handle-new-contact)
+	 (fso-register-signal-pim-contacts "DeletedContact" 'fso-pim-handle-deleted-contact))))
 
 (defun fso-unregister-signals ()
   (mapc 'dbus-unregister-object fso-registered-signals))
@@ -518,6 +539,15 @@ Message is an assoc list of (Field . Value)")
 
 (defun fso-pim-handle-deleted-message (path)
   (fso-pim-handle-deleted path fso-messages-buffer fso-pim-messages))
+
+(defun fso-pim-handle-new-contact (path)
+  (fso-pim-handle-new path fso-contacts-buffer 'fso-call-pim-contact fso-pim-contacts))
+
+(defun fso-pim-handle-updated-contact (path query)
+  (fso-pim-handle-updated path fso-contacts-buffer 'fso-call-pim-contact fso-pim-contacts))
+
+(defun fso-pim-handle-deleted-contact (path)
+  (fso-pim-handle-deleted path fso-contacts-buffer fso-pim-contacts))
 
 (defun fso-pim-handle-new (path buffer getcontentp storage)
   (let ((entryid (fso-pim-path-to-id path)))
