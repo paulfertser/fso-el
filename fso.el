@@ -395,10 +395,12 @@ Message is an assoc list of (Field . Value)")
 
 (defun fso-gsm-pdp-on (b)
   (interactive)
+  (message "Activated GPRS")
   (fso-call-gsm-pdp "ActivateContext"))
 
 (defun fso-gsm-pdp-off (b)
   (interactive)
+  (message "Deactivated GPRS")
   (fso-call-gsm-pdp "DeactivateContext"))
 
 (defun fso-gsm-no-calls-p ()
@@ -444,7 +446,9 @@ Message is an assoc list of (Field . Value)")
       (error nil))))
 
 (defun fso-gsm-call-lambda (methodname callid)
-  (list 'lambda '(x) '(interactive) `(fso-call-gsm-call ,methodname :int32 ,callid)))
+  (list 'lambda '(x) '(interactive)
+	`(message (format "%s(%d) requested" ,methodname ,callid))
+	`(fso-call-gsm-call ,methodname :int32 ,callid)))
 
 (defun calls-pp (call-id)
   (if call-id
@@ -658,6 +662,7 @@ Message is an assoc list of (Field . Value)")
 
 (defun fso-gsm-initiate-call (number)
   (interactive "sNumber to dial: ")
+  (message (format "Calling %s" number))
   (if (let ((len (length number)))
 	(or (<= len 2)
 	    (char-equal ?# (elt number (- len 1)))))
@@ -725,6 +730,7 @@ Message is an assoc list of (Field . Value)")
 				  (if request-receipt
 				   `((:dict-entry "SMS-message-reference" (:variant ,gsmid)))
 				   nil)))))
+
 (defun fso-pim-messages-mark-old ()
   (interactive)
   (fso-call-pim-message
