@@ -445,6 +445,16 @@ Message is an assoc list of (Field . Value)")
 	 (fso-call-pim-contacts-query query-path "GetResult"))
       (error nil))))
 
+(defun fso-gsm-activate-incoming ()
+  "This function activates currently inactive incoming calls,
+it's useful for binding to some hardware key to have an easy
+method for answering a call during e.g. driving."
+  (interactive)
+  (mapc (lambda (c)
+	  (if (equal "INCOMING" (cdr (assoc "status" (cdr c))))
+	      (funcall (fso-gsm-call-lambda "Activate" (car c)) 'dummy)))
+	fso-gsm-calls))
+
 (defun fso-gsm-call-lambda (methodname callid)
   (list 'lambda '(x) '(interactive)
 	`(message (format "%s(%d) requested" ,methodname ,callid))
