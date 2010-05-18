@@ -479,29 +479,31 @@ method for answering a call during e.g. driving."
 
 (defun calls-pp (call-id)
   (if call-id
-      (progn
-	(let ((call (cdr (assq call-id fso-gsm-calls))))
-	  (mapc (lambda (f)
-		  (insert (format "%s: %s\n" (car f) (cdr f)))
-		  (if (equal "peer" (car f))
-		      (let ((query-path
-			     (fso-call-pim-contacts "Query" `((:dict-entry "$phonenumber" (:variant ,(cdr f)))))))
-			(condition-case nil
-			    (insert (format "Name: %s\n"
-					    (cdr
-					     (assoc "Name" (fso-pim-entry-to-assoc
-							    (fso-call-pim-contacts-query query-path "GetResult"))))))
-			  (error nil))
-			(fso-call-pim-contacts-query query-path "Dispose"))))
-		  call))
-	(insert-button "Activate" 'action (fso-gsm-call-lambda "Activate" call-id)
-		       'follow-link t)
-	(insert "  ")
-	(insert-button "Release" 'action (fso-gsm-call-lambda "Release" call-id)
-		       'follow-link t)
-	(insert "     ")
-	(insert-button "Conference" 'action (fso-gsm-call-lambda "Conference" call-id)
-		       'follow-link t))))
+      (let ((call (cdr (assq call-id fso-gsm-calls))))
+	(if call
+	    (progn
+	      (mapc (lambda (f)
+		      (insert (format "%s: %s\n" (car f) (cdr f)))
+		      (if (equal "peer" (car f))
+			  (let ((query-path
+				 (fso-call-pim-contacts "Query" `((:dict-entry "$phonenumber" (:variant ,(cdr f)))))))
+			    (condition-case nil
+				(insert (format "Name: %s\n"
+						(cdr
+						 (assoc "Name" (fso-pim-entry-to-assoc
+								(fso-call-pim-contacts-query query-path "GetResult"))))))
+			      (error nil))
+			    (fso-call-pim-contacts-query query-path "Dispose"))))
+		    call)
+	      (insert-button "Activate" 'action (fso-gsm-call-lambda "Activate" call-id)
+			     'follow-link t)
+	      (insert "  ")
+	      (insert-button "Release" 'action (fso-gsm-call-lambda "Release" call-id)
+			     'follow-link t)
+	      (insert "     ")
+	      (insert-button "Conference" 'action (fso-gsm-call-lambda "Conference" call-id)
+			     'follow-link t)
+	      (insert "\n\n"))))))
 
 (defun fso-gsm-hold-active ()
   (interactive)
@@ -525,7 +527,7 @@ method for answering a call during e.g. driving."
     (fso-mode)
     (setq buffer-read-only t)
     (buffer-disable-undo)
-    (let ((ewoc (ewoc-create 'calls-pp)))
+    (let ((ewoc (ewoc-create 'calls-pp nil nil t)))
       (set (make-local-variable 'buffer-ewoc) ewoc))
     (setq header-line-format
 	  (concat
