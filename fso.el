@@ -410,6 +410,17 @@ Message is an assoc list of (Field . Value)")
   (message "Deactivated GPRS")
   (fso-call-gsm-pdp "DeactivateContext"))
 
+;; screw you, i love recursion
+(defun fso-filter (list predicate)
+  (defun fso-filter-r (list predicate result)
+    (cond
+     ((not list) result)
+     ((funcall predicate (car list))
+      (fso-filter-r (cdr list) predicate (nconc result (list (car list)))))
+     (t
+      (fso-filter-r (cdr list) predicate result))))
+  (fso-filter-r list predicate nil))
+
 (defun fso-gsm-no-calls-p ()
   (defun fso-gsm-no-calls-p-r (l)
     (cond
@@ -417,16 +428,16 @@ Message is an assoc list of (Field . Value)")
      ((not
        (equal "RELEASE" (cdr (assoc "status" (car l))))) nil)
      (t (fso-gsm-no-calls-p-r (cdr l)))))
-(fso-gsm-no-calls-p-r fso-gsm-calls))
+  (fso-gsm-no-calls-p-r fso-gsm-calls))
 
 (defun fso-gsm-calls-add-new-id (id status properties)
-  (setq fso-gsm-calls
-	(assq-delete-all id fso-gsm-calls))
   (setq fso-gsm-calls
 	(append (list (cons id
 			    (append (list (cons "status" status))
 				    (fso-dbus-dict-to-assoc properties))))
-		      fso-gsm-calls)))
+		(fso-filter
+		 (assq-delete-all id fso-gsm-calls)
+		 (lambda (x) (not (equal (cdr (assoc "status" x)) "RELEASE")))))))
 
 (defun fso-gsm-handle-call-status (id status properties)
   (save-excursion
@@ -438,11 +449,10 @@ Message is an assoc list of (Field . Value)")
       (if (not (get-buffer fso-calls-buffer))
 	  (fso-create-calls-buffer)))
     (set-buffer fso-calls-buffer)
-    (if (ewoc-collect buffer-ewoc
-		      (lambda (x) (eq id x)))
-	(ewoc-map (lambda (x) (eq id x))
-		  buffer-ewoc)
-      (ewoc-enter-first buffer-ewoc id))))
+    (if (not (ewoc-collect buffer-ewoc
+		      (lambda (x) (eq id x))))
+	(ewoc-enter-first buffer-ewoc id)
+      (ewoc-refresh buffer-ewoc))))
 
 (defun fso-pim-resolve-contact (phone)
   (let ((query-path
