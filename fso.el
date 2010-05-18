@@ -347,7 +347,14 @@ Message is an assoc list of (Field . Value)")
 ;; --
 
 (defun fso-gsm-handle-incoming-ussd (mode message)
-  (with-output-to-temp-buffer "Incoming USSD" (print message)))
+  (let ((temp-buffer-setup-hook
+	 (lambda () (insert-button "Close"
+				   'action  (lambda (x) (delete-window
+							 (get-buffer-window "Incoming USSD")))
+				   'follow-link t)
+	   (insert "\n"))))
+    (with-output-to-temp-buffer "Incoming USSD"
+      (print message))))
 
 (defun fso-gsm-handle-pdp-status (status properties)
   (setq fso-gsm-current-pdp-status
