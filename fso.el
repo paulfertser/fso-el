@@ -1013,7 +1013,8 @@ method for answering a call during e.g. driving."
     (if (and fso-hooker-image-path
 	     (not (equal "" fso-hooker-image-path)))
 	(defvar fso-hooker-image
-	  (find-image `((:type jpeg :file ,fso-hooker-image-path)))))
+	  (find-image `((:type jpeg :file ,fso-hooker-image-path))))
+      (defvar fso-hooker-image nil))
     (fso-create-status-buffer)
     (fso-create-calllist-buffer)
     (fso-create-contacts-buffer)
