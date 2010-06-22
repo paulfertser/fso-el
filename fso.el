@@ -352,9 +352,15 @@ Message is an assoc list of (Field . Value)")
 				   'action  (lambda (x) (delete-window
 							 (get-buffer-window "Incoming USSD")))
 				   'follow-link t)
-	   (insert "\n"))))
+	   (insert "\n")
+	   (let ((keymap (copy-keymap fso-mode-map)))
+	     (mapc (lambda (x)
+		     (define-key keymap x `(lambda () (interactive) (fso-gsm-initiate-ussd ,x))))
+		   '("0" "1" "2" "3" "4" "5" "6" "7" "8" "9"))
+	     (define-key keymap "u" 'fso-gsm-initiate-ussd)
+	     (use-local-map keymap)))))
     (with-output-to-temp-buffer "Incoming USSD"
-      (print message))))
+      (princ message))))
 
 (defun fso-gsm-handle-pdp-status (status properties)
   (setq fso-gsm-current-pdp-status
@@ -689,13 +695,17 @@ method for answering a call during e.g. driving."
 			(cdr (assoc "Name" contactentry))
 			(cdr (assoc "Phone" contactentry)))))))
 
+(defun fso-gsm-initiate-ussd (string)
+  (interactive "sUSSD: ")
+  (fso-call-gsm-network "SendUssdRequest" string))
+
 (defun fso-gsm-initiate-call (number)
   (interactive "sNumber to dial: ")
   (message (format "Calling %s" number))
   (if (let ((len (length number)))
 	(or (<= len 2)
 	    (char-equal ?# (elt number (- len 1)))))
-      (fso-call-gsm-network "SendUssdRequest" number)
+      (fso-gsm-initiate-ussd number)
     (fso-call-gsm-call "Initiate" number "voice")))
 
 (defun fso-gsm-contacts-call ()
