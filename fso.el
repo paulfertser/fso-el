@@ -475,11 +475,11 @@ method for answering a call during e.g. driving."
   (interactive)
   (mapc (lambda (c)
 	  (if (equal "INCOMING" (cdr (assoc "status" (cdr c))))
-	      (funcall (fso-gsm-call-lambda "Activate" (car c)) 'dummy)))
+	      (funcall (fso-gsm-call-lambda "Activate" (car c)))))
 	fso-gsm-calls))
 
 (defun fso-gsm-call-lambda (methodname callid)
-  (list 'lambda '(x) '(interactive)
+  (list 'lambda '(&rest dummy) '(interactive)
 	`(message (format "%s(%d) requested" ,methodname ,callid))
 	`(fso-call-gsm-call ,methodname :int32 ,callid)))
 
@@ -531,6 +531,11 @@ method for answering a call during e.g. driving."
   (save-excursion
     (set-buffer (get-buffer-create fso-calls-buffer))
     (fso-mode)
+    (let ((keymap (copy-keymap (current-local-map))))
+      (mapc (lambda (x)
+	      (define-key keymap x `(lambda () (interactive) (fso-call-gsm-call "SendDtmf" ,x))))
+	    '("0" "1" "2" "3" "4" "5" "6" "7" "8" "9"))
+      (use-local-map keymap))
     (setq buffer-read-only t)
     (buffer-disable-undo)
     (let ((ewoc (ewoc-create 'calls-pp nil nil t)))
