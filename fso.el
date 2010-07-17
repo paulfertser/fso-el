@@ -124,6 +124,8 @@ CallData is an assoc list of (Field . Value)")
 Message is an assoc list of (Field . Value)")
 (defvar fso-gsm-calls nil
   "Holds GSM-level calls info (id . ((status . s) (peer . s) ...))")
+(defvar fso-gsm-initialized nil
+  "Whether gsm was already initialized")
 
 ;; --
 
@@ -133,6 +135,15 @@ Message is an assoc list of (Field . Value)")
    nil
    "/org/freesmartphone/GSM/Device"
    "org.freesmartphone.GSM.Network"
+   method
+   function))
+
+(defun fso-register-signal-gsm-device (method function)
+  (dbus-register-signal
+   :system
+   nil
+   "/org/freesmartphone/GSM/Device"
+   "org.freesmartphone.GSM.Device"
    method
    function))
 
@@ -307,6 +318,7 @@ Message is an assoc list of (Field . Value)")
 (defun fso-register-signals ()
   (setq fso-registered-signals
 	(list
+	 (fso-register-signal-gsm-device "DeviceStatus" 'fso-gsm-handle-device-status)
 	 (fso-register-signal-network "Status" 'fso-gsm-handle-status-change)
 	 (fso-register-signal-pim-messages "UnreadMessages" 'fso-pim-handle-unread-messages)
 	 (fso-register-signal-pim-calls "NewMissedCalls" 'fso-pim-handle-new-missed-calls)
@@ -954,18 +966,26 @@ method for answering a call during e.g. driving."
       (fso-create-messages-buffer))
   (switch-to-buffer fso-messages-buffer))
 
+(defun fso-gsm-handle-device-status (s)
+  (if (and (not fso-gsm-initialized)
+	   (eq (compare-strings s 0 nil "alive-" 0 nil) 7))
+      (if fso-auto-register
+	  (fso-gsm-set-functionality "full"))
+    (fso-gsm-get-network-status)
+    (setq fso-gsm-initialized t)))
+
 (defun fso-create-status-buffer ()
     (switch-to-buffer fso-status-buffer)
     (fso-mode)
     (buffer-disable-undo)
+    (setq fso-gsm-current-network-status nil)
+    (setq fso-gsm-current-pdp-status nil)
+    (setq fso-gsm-initialized nil)
     (message "FSO: requesting GSM resource")
     (fso-usage-request-resource-gsm)
-    (if fso-auto-register
-	(fso-gsm-set-functionality "full"))
     (add-hook 'fso-gsm-current-network-status-hooks 'fso-status-buffer-update)
     (add-hook 'fso-pim-new-missed-calls-hooks 'fso-status-buffer-update)
     (add-hook 'fso-pim-unread-messages-hooks 'fso-status-buffer-update)
-    (fso-gsm-get-network-status)
     (fso-pim-get-unread-messages)
     (fso-pim-get-new-missed-calls)
     (message "FSO: retrieving phonebook")
