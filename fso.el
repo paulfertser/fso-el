@@ -792,7 +792,7 @@ method for answering a call during e.g. driving."
   (fso-call-pim-message
    (ewoc-data (ewoc-locate buffer-ewoc))
    "Update"
-   '((:dict-entry "MessageRead" (:variant 1)))))
+   '((:dict-entry "New" (:variant 0)))))
 
 (defun messages-pp (messageentry-id)
   (if messageentry-id
@@ -805,9 +805,9 @@ method for answering a call during e.g. driving."
 				      (fso-pim-resolve-contact (cdr (assoc "Peer" messageentry))))))
 		      (cdr (assoc "Peer" messageentry)))
 		  (cdr (assoc "Direction" messageentry))
-		  (if (eq (cdr (assoc "MessageRead" messageentry)) 1)
-		      "read"
-		    "unread")
+		  (if (eq (cdr (assoc "New" messageentry)) 1)
+		      "new"
+		    "old")
 		  (condition-case nil
 		      (format-time-string "%c"
 					  (seconds-to-time
