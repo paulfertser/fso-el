@@ -579,7 +579,7 @@ method for answering a call during e.g. driving."
       (error nil))))
 
 (defun fso-pim-handle-new-call (path)
-  (fso-pim-handle-new path fso-calllist-buffer 'fso-call-pim-call fso-pim-calls))
+  (fso-pim-handle-new path fso-calllist-buffer 'fso-call-pim-call 'fso-pim-calls))
 
 (defun fso-pim-handle-updated-call (path query)
   (fso-pim-handle-updated path fso-calllist-buffer 'fso-call-pim-call fso-pim-calls))
@@ -588,7 +588,7 @@ method for answering a call during e.g. driving."
   (fso-pim-handle-deleted path fso-calllist-buffer fso-pim-calls))
 
 (defun fso-pim-handle-new-message (path)
-  (fso-pim-handle-new path fso-messages-buffer 'fso-call-pim-message fso-pim-messages))
+  (fso-pim-handle-new path fso-messages-buffer 'fso-call-pim-message 'fso-pim-messages))
 
 (defun fso-pim-handle-updated-message (path query)
   (fso-pim-handle-updated path fso-messages-buffer 'fso-call-pim-message fso-pim-messages))
@@ -597,7 +597,7 @@ method for answering a call during e.g. driving."
   (fso-pim-handle-deleted path fso-messages-buffer fso-pim-messages))
 
 (defun fso-pim-handle-new-contact (path)
-  (fso-pim-handle-new path fso-contacts-buffer 'fso-call-pim-contact fso-pim-contacts))
+  (fso-pim-handle-new path fso-contacts-buffer 'fso-call-pim-contact 'fso-pim-contacts))
 
 (defun fso-pim-handle-updated-contact (path query)
   (fso-pim-handle-updated path fso-contacts-buffer 'fso-call-pim-contact fso-pim-contacts))
@@ -607,8 +607,8 @@ method for answering a call during e.g. driving."
 
 (defun fso-pim-handle-new (path buffer getcontentp storage)
   (let ((entryid (fso-pim-path-to-id path)))
-    (setq storage
-	  (nconc storage
+    (set storage
+	  (nconc (symbol-value storage)
 		 (list (fso-pim-entry-to-assoc (funcall getcontentp entryid "GetContent")))))
     (fso-do-in-list buffer 'ewoc-invalidate
 		    buffer-ewoc (ewoc-enter-first buffer-ewoc entryid))))
