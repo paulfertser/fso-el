@@ -52,7 +52,7 @@
   :type 'string
   :group 'fso)
 
-(defcustom fso-pdp-apn ""
+(defcustom fso-pdp-apn nil
   "APN name for the GPRS service."
   :type 'string
   :group 'fso)
@@ -971,6 +971,9 @@ method for answering a call during e.g. driving."
 	   (eq (compare-strings s 0 nil "alive-" 0 nil) 7))
       (if fso-auto-register
 	  (fso-gsm-set-functionality "full"))
+    (if fso-pdp-apn
+	(fso-call-gsm-pdp "SetCredentials" fso-pdp-apn
+			  fso-pdp-username fso-pdp-password))
     (fso-gsm-get-network-status)
     (setq fso-gsm-initialized t)))
 
@@ -1040,9 +1043,6 @@ method for answering a call during e.g. driving."
     (fso-create-contacts-buffer)
     (fso-create-calls-buffer)
     (fso-create-messages-buffer)
-    (if fso-pdp-apn
-	(fso-call-gsm-pdp "SetCredentials" fso-pdp-apn
-			  fso-pdp-username fso-pdp-password))
     (fso-register-signals)
     (message "FSO initialized successfully")))
 
