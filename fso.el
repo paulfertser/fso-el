@@ -1,6 +1,6 @@
-;; fso.el --- Emacs interface to freesmartphone API
+;; fso.el --- Emacs interface to freesmartphone API -*- lexical-binding: t; -*-
 
-;; Copyright (c) 2010 Paul Fertser <fercerpav@gmail.com>
+;; Copyright (c) 2010,2012 Paul Fertser <fercerpav@gmail.com>
 
 ;; Inspired by fso.el script by John Sullivan
 ;; Copyright (c) 2009 John Sullivan <john@wjsullivan.net>
@@ -34,6 +34,7 @@
 ;; Boston, MA 02110-1301, USA.
 
 (require 'dbus)
+(require 'ewoc)
 
 (define-derived-mode fso-mode fundamental-mode "FSO"
   "Major mode for interfacing with FSO-compatible smartphones.")
@@ -41,11 +42,6 @@
 (defgroup fso nil
   "Customization group for FSO interface"
   :group 'applications)
-
-(defcustom fso-log-file "~/.fso-el.log"
-  "Log file."
-  :type 'file
-  :group 'fso)
 
 (defcustom fso-gsm-pin ""
   "PIN to use to unlock the SIM card"
@@ -133,6 +129,10 @@ Message is an assoc list of (Field . Value)")
   "Holds GSM-level calls info (id . ((status . s) (peer . s) ...))")
 (defvar fso-gsm-initialized nil
   "Whether gsm was already initialized")
+(defvar fso-registered-signals nil
+  "A list of signals that fso.el has registered to")
+(defvar buffer-ewoc)
+(defvar fso-hooker-image)
 
 ;; --
 
@@ -346,16 +346,17 @@ Message is an assoc list of (Field . Value)")
   (mapc 'dbus-unregister-object fso-registered-signals))
 
 ;; O tail-recursion, where art thou
+(defun fso-pim-entry-to-assoc-r (pimentry entryid entry)
+  (let ((field (car pimentry)))
+    (cond
+     ((not pimentry)
+      (cons entryid entry))
+     ((string= (car field) "EntryId")
+      (fso-pim-entry-to-assoc-r (cdr pimentry) (car (cadr field)) entry))
+     (t
+      (fso-pim-entry-to-assoc-r (cdr pimentry) entryid (cons (cons (car field) (car (cadr field))) entry))))))
+
 (defun fso-pim-entry-to-assoc (pimentry)
-  (defun fso-pim-entry-to-assoc-r (pimentry entryid entry)
-    (let ((field (car pimentry)))
-      (cond
-       ((not pimentry)
-	(cons entryid entry))
-       ((string= (car field) "EntryId")
-	(fso-pim-entry-to-assoc-r (cdr pimentry) (car (cadr field)) entry))
-       (t
-	(fso-pim-entry-to-assoc-r (cdr pimentry) entryid (cons (cons (car field) (car (cadr field))) entry))))))
   (fso-pim-entry-to-assoc-r pimentry nil nil))
 
 (defun fso-dbus-dict-to-assoc (dict)
@@ -365,10 +366,10 @@ Message is an assoc list of (Field . Value)")
 
 ;; --
 
-(defun fso-gsm-handle-incoming-ussd (mode message)
+(defun fso-gsm-handle-incoming-ussd (_mode message)
   (let ((temp-buffer-setup-hook
 	 (lambda () (insert-button "Close"
-				   'action  (lambda (x) (delete-window
+				   'action  (lambda (_x) (delete-window
 							 (get-buffer-window "Incoming USSD")))
 				   'follow-link t)
 	   (insert "\n")
@@ -400,8 +401,7 @@ Message is an assoc list of (Field . Value)")
     "n/a"))
 
 (defun fso-status-buffer-update ()
-  (save-excursion
-    (set-buffer fso-status-buffer)
+  (with-current-buffer fso-status-buffer
     (let ((buffer-read-only nil))
       (erase-buffer)
       (mapc (lambda (f)
@@ -414,45 +414,47 @@ Message is an assoc list of (Field . Value)")
       (insert-button "Off" 'action 'fso-gsm-pdp-off 'follow-link t)
       (insert "\n\n")
       (insert-button (format "Unread messages: %s" (fso-num-or-na fso-pim-current-unread-messages))
-		     'action (lambda (x) (interactive) (fso-pim-show-messages))
+		     'action (lambda (_x) (interactive) (fso-pim-show-messages))
 		     'follow-link t)
       (insert "  ")
       (insert-button (format "Missed calls: %s" (fso-num-or-na fso-pim-current-missed-calls))
-		     'action (lambda (x) (interactive) (fso-pim-show-calls))
+		     'action (lambda (_x) (interactive) (fso-pim-show-calls))
 		     'follow-link t)
       (if fso-hooker-image
 	  (progn
 	    (insert "\n\n         ")
 	    (insert-image fso-hooker-image))))))
 
-(defun fso-gsm-pdp-on (b)
+(defun fso-gsm-pdp-on (_b)
   (interactive)
   (message "Activated GPRS")
   (fso-call-gsm-pdp "ActivateContext"))
 
-(defun fso-gsm-pdp-off (b)
+(defun fso-gsm-pdp-off (_b)
   (interactive)
   (message "Deactivated GPRS")
   (fso-call-gsm-pdp "DeactivateContext"))
 
 ;; screw you, i love recursion
+(defun fso-filter-r (list predicate result)
+  (cond
+   ((not list) result)
+   ((funcall predicate (car list))
+    (fso-filter-r (cdr list) predicate (nconc result (list (car list)))))
+   (t
+    (fso-filter-r (cdr list) predicate result))))
+
 (defun fso-filter (list predicate)
-  (defun fso-filter-r (list predicate result)
-    (cond
-     ((not list) result)
-     ((funcall predicate (car list))
-      (fso-filter-r (cdr list) predicate (nconc result (list (car list)))))
-     (t
-      (fso-filter-r (cdr list) predicate result))))
   (fso-filter-r list predicate nil))
 
+(defun fso-gsm-no-calls-p-r (l)
+  (cond
+   ((not l) t)
+   ((not
+     (equal "RELEASE" (cdr (assoc "status" (car l))))) nil)
+   (t (fso-gsm-no-calls-p-r (cdr l)))))
+
 (defun fso-gsm-no-calls-p ()
-  (defun fso-gsm-no-calls-p-r (l)
-    (cond
-     ((not l) t)
-     ((not
-       (equal "RELEASE" (cdr (assoc "status" (car l))))) nil)
-     (t (fso-gsm-no-calls-p-r (cdr l)))))
   (fso-gsm-no-calls-p-r fso-gsm-calls))
 
 (defun fso-gsm-calls-add-new-id (id status properties)
@@ -547,8 +549,7 @@ method for answering a call during e.g. driving."
   (fso-call-gsm-call "Join"))
 
 (defun fso-create-calls-buffer ()
-  (save-excursion
-    (set-buffer (get-buffer-create fso-calls-buffer))
+  (with-current-buffer (get-buffer-create fso-calls-buffer)
     (fso-mode)
     (let ((keymap (copy-keymap (current-local-map))))
       (mapc (lambda (x)
@@ -588,7 +589,7 @@ method for answering a call during e.g. driving."
 (defun fso-pim-handle-new-call (path)
   (fso-pim-handle-new path fso-calllist-buffer 'fso-call-pim-call 'fso-pim-calls))
 
-(defun fso-pim-handle-updated-call (path query)
+(defun fso-pim-handle-updated-call (path _query)
   (fso-pim-handle-updated path fso-calllist-buffer 'fso-call-pim-call fso-pim-calls))
 
 (defun fso-pim-handle-deleted-call (path)
@@ -597,7 +598,7 @@ method for answering a call during e.g. driving."
 (defun fso-pim-handle-new-message (path)
   (fso-pim-handle-new path fso-messages-buffer 'fso-call-pim-message 'fso-pim-messages))
 
-(defun fso-pim-handle-updated-message (path query)
+(defun fso-pim-handle-updated-message (path _query)
   (fso-pim-handle-updated path fso-messages-buffer 'fso-call-pim-message fso-pim-messages))
 
 (defun fso-pim-handle-deleted-message (path)
@@ -606,7 +607,7 @@ method for answering a call during e.g. driving."
 (defun fso-pim-handle-new-contact (path)
   (fso-pim-handle-new path fso-contacts-buffer 'fso-call-pim-contact 'fso-pim-contacts))
 
-(defun fso-pim-handle-updated-contact (path query)
+(defun fso-pim-handle-updated-contact (path _query)
   (fso-pim-handle-updated path fso-contacts-buffer 'fso-call-pim-contact fso-pim-contacts))
 
 (defun fso-pim-handle-deleted-contact (path)
@@ -692,8 +693,7 @@ method for answering a call during e.g. driving."
 (defun fso-create-calllist-buffer ()
   (message "FSO: retrieving call log")
   (fso-pim-get-all-calls)
-  (save-excursion
-    (set-buffer (get-buffer-create fso-calllist-buffer))
+  (with-current-buffer (get-buffer-create fso-calllist-buffer)
     (fso-mode)
     (let ((keymap (copy-keymap (current-local-map))))
       (define-key keymap "r" 'fso-pim-call-selected-call)
@@ -751,8 +751,7 @@ method for answering a call during e.g. driving."
 			(read-string "Message: ")))
 
 (defun fso-create-contacts-buffer ()
-  (save-excursion
-    (set-buffer (get-buffer-create fso-contacts-buffer))
+  (with-current-buffer (get-buffer-create fso-contacts-buffer)
     (fso-mode)
     (let ((keymap (copy-keymap (current-local-map))))
       (define-key keymap "\r" 'fso-gsm-contacts-call)
@@ -850,8 +849,7 @@ method for answering a call during e.g. driving."
 (defun fso-create-messages-buffer ()
   (message "FSO: retrieving messages")
   (fso-pim-get-all-messages)
-  (save-excursion
-    (set-buffer (get-buffer-create fso-messages-buffer))
+  (with-current-buffer (get-buffer-create fso-messages-buffer)
     (fso-mode)
     (let ((keymap (copy-keymap (current-local-map))))
       (define-key keymap "r" 'fso-pim-reply-selected-message)
@@ -949,8 +947,7 @@ method for answering a call during e.g. driving."
   "Return t if FSO-el is running."
   (and (boundp 'fso-status-buffer)
        (get-buffer fso-status-buffer)
-       (save-excursion
-         (set-buffer fso-status-buffer)
+       (with-current-buffer fso-status-buffer
          (eq major-mode 'fso-mode))))
 
 (defun fso-show-status ()
