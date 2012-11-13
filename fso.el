@@ -671,7 +671,7 @@ method for answering a call during e.g. driving."
   (fso-gsm-initiate-call
    (cdr (assoc "Peer" (assq (ewoc-data (ewoc-locate buffer-ewoc)) fso-pim-calls)))))
 
-(defun fso-pim-call-selected-message ()
+(defun fso-pim-message-selected-call ()
   (interactive)
   (fso-gsm-send-message nil
 			(cdr (assoc "Peer" (assq (ewoc-data (ewoc-locate buffer-ewoc)) fso-pim-calls)))
@@ -691,7 +691,7 @@ method for answering a call during e.g. driving."
     (let ((keymap (copy-keymap (current-local-map))))
       (define-key keymap "r" 'fso-pim-call-selected-call)
       (define-key keymap "d" 'fso-pim-delete-selected-call)
-      (define-key keymap "M" 'fso-pim-call-selected-message)
+      (define-key keymap "M" 'fso-pim-message-selected-call)
       (use-local-map keymap))
     (setq buffer-read-only t)
     (buffer-disable-undo)
