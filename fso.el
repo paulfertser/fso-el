@@ -87,6 +87,13 @@
   :type '(repeat string)
   :group 'fso)
 
+(defcustom fso-server-dbus-path :system
+  "Custom address to connect to the dbus server"
+  :type '(choice (const :tag "System bus" :system)
+		 (const :tag "Session bus" :session)
+		 (string :tag "Custom dbus path"))
+  :group 'fso)
+
 (defcustom fso-hooker-image-path ""
   "Provide the path to the hooker image, e.g. ~/.fso-el/hooker.jpg"
   :type 'file
@@ -131,7 +138,7 @@ Message is an assoc list of (Field . Value)")
 
 (defun fso-register-signal-network (method function)
   (dbus-register-signal
-   :system
+   fso-server-dbus-path
    nil
    "/org/freesmartphone/GSM/Device"
    "org.freesmartphone.GSM.Network"
@@ -140,7 +147,7 @@ Message is an assoc list of (Field . Value)")
 
 (defun fso-register-signal-gsm-device (method function)
   (dbus-register-signal
-   :system
+   fso-server-dbus-path
    nil
    "/org/freesmartphone/GSM/Device"
    "org.freesmartphone.GSM.Device"
@@ -149,7 +156,7 @@ Message is an assoc list of (Field . Value)")
 
 (defun fso-call-gsm-network (method &rest args)
   (apply 'dbus-call-method
-         :system
+         fso-server-dbus-path
          "org.freesmartphone.ogsmd"
          "/org/freesmartphone/GSM/Device"
          "org.freesmartphone.GSM.Network"
@@ -157,7 +164,7 @@ Message is an assoc list of (Field . Value)")
 
 (defun fso-register-signal-gsm-call (method function)
   (dbus-register-signal
-   :system
+   fso-server-dbus-path
    nil
    "/org/freesmartphone/GSM/Device"
    "org.freesmartphone.GSM.Call"
@@ -166,7 +173,7 @@ Message is an assoc list of (Field . Value)")
 
 (defun fso-call-gsm-call (method &rest args)
   (apply 'dbus-call-method
-         :system
+         fso-server-dbus-path
          "org.freesmartphone.ogsmd"
          "/org/freesmartphone/GSM/Device"
          "org.freesmartphone.GSM.Call"
@@ -174,7 +181,7 @@ Message is an assoc list of (Field . Value)")
 
 (defun fso-register-signal-gsm-pdp (method function)
   (dbus-register-signal
-   :system
+   fso-server-dbus-path
    nil
    "/org/freesmartphone/GSM/Device"
    "org.freesmartphone.GSM.PDP"
@@ -183,7 +190,7 @@ Message is an assoc list of (Field . Value)")
 
 (defun fso-call-gsm-pdp (method &rest args)
   (apply 'dbus-call-method
-         :system
+         fso-server-dbus-path
          "org.freesmartphone.ogsmd"
          "/org/freesmartphone/GSM/Device"
          "org.freesmartphone.GSM.PDP"
@@ -191,7 +198,7 @@ Message is an assoc list of (Field . Value)")
 
 (defun fso-call-gsm-sms (method &rest args)
   (apply 'dbus-call-method
-         :system
+         fso-server-dbus-path
          "org.freesmartphone.ogsmd"
          "/org/freesmartphone/GSM/Device"
          "org.freesmartphone.GSM.SMS"
@@ -199,7 +206,7 @@ Message is an assoc list of (Field . Value)")
 
 (defun fso-call-gsm-device (method &rest args)
   (apply 'dbus-call-method
-         :system
+         fso-server-dbus-path
          "org.freesmartphone.ogsmd"
          "/org/freesmartphone/GSM/Device"
          "org.freesmartphone.GSM.Device"
@@ -207,7 +214,7 @@ Message is an assoc list of (Field . Value)")
 
 (defun fso-call-usage (method &rest args)
   (apply 'dbus-call-method
-         :system
+         fso-server-dbus-path
          "org.freesmartphone.ousaged"
 	 "/org/freesmartphone/Usage"
 	 "org.freesmartphone.Usage"
@@ -215,7 +222,7 @@ Message is an assoc list of (Field . Value)")
 
 (defun fso-register-signal-pim-contacts (method function)
   (dbus-register-signal
-   :system
+   fso-server-dbus-path
    nil
    "/org/freesmartphone/PIM/Contacts"
    "org.freesmartphone.PIM.Contacts"
@@ -224,7 +231,7 @@ Message is an assoc list of (Field . Value)")
 
 (defun fso-call-pim-contact (id method &rest args)
   (apply 'dbus-call-method
-         :system
+         fso-server-dbus-path
          "org.freesmartphone.opimd"
          (concat "/org/freesmartphone/PIM/Contacts/"
 		 (number-to-string id))
@@ -233,7 +240,7 @@ Message is an assoc list of (Field . Value)")
 
 (defun fso-call-pim-contacts (method &rest args)
   (apply 'dbus-call-method
-         :system
+         fso-server-dbus-path
          "org.freesmartphone.opimd"
          "/org/freesmartphone/PIM/Contacts"
          "org.freesmartphone.PIM.Contacts"
@@ -241,7 +248,7 @@ Message is an assoc list of (Field . Value)")
 
 (defun fso-call-pim-contacts-query (query-path method &rest args)
   (apply 'dbus-call-method
-         :system
+         fso-server-dbus-path
          "org.freesmartphone.opimd"
 	 query-path
          "org.freesmartphone.PIM.ContactQuery"
@@ -249,7 +256,7 @@ Message is an assoc list of (Field . Value)")
 
 (defun fso-call-pim-calls-query (query-path method &rest args)
   (apply 'dbus-call-method
-         :system
+         fso-server-dbus-path
          "org.freesmartphone.opimd"
 	 query-path
          "org.freesmartphone.PIM.CallQuery"
@@ -257,7 +264,7 @@ Message is an assoc list of (Field . Value)")
 
 (defun fso-call-pim-calls (method &rest args)
   (apply 'dbus-call-method
-         :system
+         fso-server-dbus-path
          "org.freesmartphone.opimd"
          "/org/freesmartphone/PIM/Calls"
          "org.freesmartphone.PIM.Calls"
@@ -265,7 +272,7 @@ Message is an assoc list of (Field . Value)")
 
 (defun fso-register-signal-pim-calls (method function)
   (dbus-register-signal
-   :system
+   fso-server-dbus-path
    nil
    "/org/freesmartphone/PIM/Calls"
    "org.freesmartphone.PIM.Calls"
@@ -274,7 +281,7 @@ Message is an assoc list of (Field . Value)")
 
 (defun fso-call-pim-call (calln method &rest args)
   (apply 'dbus-call-method
-         :system
+         fso-server-dbus-path
          "org.freesmartphone.opimd"
          (concat "/org/freesmartphone/PIM/Calls/"
 		 (number-to-string calln))
@@ -283,7 +290,7 @@ Message is an assoc list of (Field . Value)")
 
 (defun fso-register-signal-pim-messages (method function)
   (dbus-register-signal
-   :system
+   fso-server-dbus-path
    nil
    "/org/freesmartphone/PIM/Messages"
    "org.freesmartphone.PIM.Messages"
@@ -292,7 +299,7 @@ Message is an assoc list of (Field . Value)")
 
 (defun fso-call-pim-message (id method &rest args)
   (apply 'dbus-call-method
-         :system
+         fso-server-dbus-path
          "org.freesmartphone.opimd"
          (concat "/org/freesmartphone/PIM/Messages/"
 		 (number-to-string id))
@@ -301,7 +308,7 @@ Message is an assoc list of (Field . Value)")
 
 (defun fso-call-pim-messages (method &rest args)
   (apply 'dbus-call-method
-         :system
+         fso-server-dbus-path
          "org.freesmartphone.opimd"
          "/org/freesmartphone/PIM/Messages"
          "org.freesmartphone.PIM.Messages"
@@ -309,7 +316,7 @@ Message is an assoc list of (Field . Value)")
 
 (defun fso-call-pim-messages-query (query-path method &rest args)
   (apply 'dbus-call-method
-         :system
+         fso-server-dbus-path
          "org.freesmartphone.opimd"
 	 query-path
          "org.freesmartphone.PIM.MessageQuery"
@@ -992,6 +999,9 @@ method for answering a call during e.g. driving."
     (setq fso-gsm-current-network-status nil)
     (setq fso-gsm-current-pdp-status nil)
     (setq fso-gsm-initialized nil)
+    (if (not (or (eq fso-server-dbus-path :system)
+		 (eq fso-server-dbus-path :session)))
+	(dbus-init-bus fso-server-dbus-path))
     (message "FSO: requesting GSM resource")
     (fso-usage-request-resource-gsm)
     (add-hook 'fso-gsm-current-network-status-hooks 'fso-status-buffer-update)
