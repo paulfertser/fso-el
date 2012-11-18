@@ -343,7 +343,8 @@ Message is an assoc list of (Field . Value)")
 	 (fso-register-signal-pim-contacts "DeletedContact" 'fso-pim-handle-deleted-contact))))
 
 (defun fso-unregister-signals ()
-  (mapc 'dbus-unregister-object fso-registered-signals))
+  (mapc 'dbus-unregister-object fso-registered-signals)
+  (setq fso-registered-signals nil))
 
 ;; O tail-recursion, where art thou
 (defun fso-pim-entry-to-assoc-r (pimentry entryid entry)
@@ -992,11 +993,13 @@ method for answering a call during e.g. driving."
 
 (defun fso-create-status-buffer ()
     (switch-to-buffer fso-status-buffer)
+    (setq buffer-read-only t)
     (fso-mode)
     (buffer-disable-undo)
     (setq fso-gsm-current-network-status nil)
     (setq fso-gsm-current-pdp-status nil)
     (setq fso-gsm-initialized nil)
+    (add-hook 'kill-buffer-hook 'fso-kill-buffer-hook)
     (if (not (or (eq fso-server-dbus-path :system)
 		 (eq fso-server-dbus-path :session)))
 	(dbus-init-bus fso-server-dbus-path))
@@ -1017,9 +1020,7 @@ method for answering a call during e.g. driving."
 	   " "
 	   (propertize "Calls"
 		      'keymap '(keymap (header-line keymap (mouse-1 . fso-gsm-show-calls)))
-		      'mouse-face 'mode-line-highlight)))
-    (setq buffer-read-only t)
-    (add-hook 'kill-buffer-hook 'fso-kill-buffer-hook))
+		      'mouse-face 'mode-line-highlight))))
 
 (defun fso-kill-buffer-hook ()
   (if (equal (buffer-name) fso-status-buffer)
