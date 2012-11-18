@@ -981,11 +981,12 @@ method for answering a call during e.g. driving."
 (defun fso-gsm-handle-device-status (s)
   (if (and (not fso-gsm-initialized)
 	   (eq (compare-strings s 0 nil "alive-" 0 nil) 7))
-      (if fso-auto-register
-	  (fso-gsm-set-functionality "full"))
-    (if fso-pdp-apn
-	(fso-call-gsm-pdp "SetCredentials" fso-pdp-apn
-			  fso-pdp-username fso-pdp-password))
+      (progn
+	(if fso-auto-register
+	    (fso-gsm-set-functionality "full"))
+	(if fso-pdp-apn
+	    (fso-call-gsm-pdp "SetCredentials" fso-pdp-apn
+			      fso-pdp-username fso-pdp-password)))
     (fso-gsm-get-network-status)
     (setq fso-gsm-initialized t)))
 
