@@ -1,20 +1,20 @@
 ;; fso.el --- Emacs interface to freesmartphone API -*- lexical-binding: t; -*-
 
-;; Copyright (c) 2010,2012 Paul Fertser <fercerpav@gmail.com>
+;; Copyright (c) 2010,2012-2013 Paul Fertser <fercerpav@gmail.com>
 
 ;; Inspired by fso.el script by John Sullivan
 ;; Copyright (c) 2009 John Sullivan <john@wjsullivan.net>
 
 ;; Emacs Lisp Archive Entry
 ;; Filename: fso.el
-;; Version: 0.1
-;; Keywords:
+;; Version: 0.2
+;; Keywords: FSO, GSM, SMS
 ;; Author: Paul Fertser <fercerpav@gmail.com>
 ;; Maintainer: Paul Fertser <fercerpav@gmail.com>
 ;; Description: Use Emacs for accessing smartphone functions.
 ;; URL: http://wiki.github.com/paulfertser/fso-el/
 ;; Bugs: http://github.com/paulfertser/fso-el/issues
-;; Compatibility: Emacs23
+;; Compatibility: Emacs23, Emacs24
 
 ;; This file is not part of GNU Emacs.
 
@@ -35,6 +35,7 @@
 
 (require 'dbus)
 (require 'ewoc)
+(require 'timer)
 
 (define-derived-mode fso-mode fundamental-mode "FSO"
   "Major mode for interfacing with FSO-compatible smartphones.")
@@ -101,7 +102,10 @@
 (defvar fso-calllist-buffer "*FSO Calllist*")
 (defvar fso-contacts-buffer "*FSO Contacts*")
 (defvar fso-calls-buffer "*FSO Calls*")
+(defvar fso-monitor-buffer "*FSO Monitor*")
 (defvar fso-messages-buffer "*FSO Messages*")
+(defvar fso-monitor-timer nil
+  "1s timer used to update neighbour cell information")
 (defvar fso-gsm-current-network-status nil
   "Provides information about current gsm network status in an assoc list")
 (defvar fso-gsm-current-pdp-status nil
@@ -111,6 +115,10 @@
 (defvar fso-status-buffer-hook nil
   "Hooks to run to change status buffer contents. Called with the current
 buffer set to status, r/w, positioned at the end of the standard status info.")
+(defvar fso-gsm-current-serving-cell nil
+  "Current serving cell information")
+(defvar fso-gsm-current-neighbour-cells nil
+  "Base stations that are currently nearby")
 (defvar fso-pim-current-unread-messages nil
   "The amount of currently unread messages")
 (defvar fso-pim-current-unread-messages-hooks nil
@@ -163,6 +171,14 @@ Message is an assoc list of (Field . Value)")
          "org.freesmartphone.ogsmd"
          "/org/freesmartphone/GSM/Device"
          "org.freesmartphone.GSM.Network"
+         method :timeout 60000 args))
+
+(defun fso-call-gsm-monitor (method &rest args)
+  (apply 'dbus-call-method
+         fso-server-dbus-path
+         "org.freesmartphone.ogsmd"
+         "/org/freesmartphone/GSM/Device"
+         "org.freesmartphone.GSM.Monitor"
          method :timeout 60000 args))
 
 (defun fso-register-signal-gsm-call (method function)
@@ -585,6 +601,57 @@ method for answering a call during e.g. driving."
 		       'keymap '(keymap (header-line keymap (mouse-1 . fso-gsm-join)))
 		       'mouse-face 'mode-line-highlight)))))
 
+(defun fso-monitor-timer-handle ()
+  (let ((mon-window (get-buffer-window fso-monitor-buffer t)))
+    (if mon-window
+	(with-current-buffer fso-monitor-buffer
+	  (let ((buffer-read-only nil)
+		(width (window-width mon-window))
+		(fmt "%5s%6s%6s%5s%5s")
+		(ns (cons
+		     (fso-gsm-get-serving-cell)
+		     (fso-gsm-get-neighbour-cells))))
+	    (erase-buffer)
+	    (insert-button "Close"
+			   'action  (lambda (_x) (kill-buffer fso-monitor-buffer))
+			   'follow-link t)
+	    (insert "\n ")
+	    (insert (format fmt "LAC" "CID" "ARFCN" "TA" "RXL\n"))
+	    (mapc (lambda (s)
+		    (let ((str
+			   (concat "<"
+				   (apply 'format fmt
+					  (mapcar (lambda (prop)
+						    (let ((v (cdr (assoc prop s))))
+						      (if v v "")))
+						  '("lac" "cid" "arfcn" "tav" "rxlev")))
+				   (make-string (- width 30) ?\s)
+				   ">\n")))
+		      (put-text-property 1
+					 (+ (/ (* (cdr (assoc "rxlev" s))
+						  (- width 2))
+					       80)
+					    1)
+					 'face '(background-color . "blue") str)
+		      (insert str)))
+		  ns)
+	    (goto-char (point-min)))))))
+
+(defun fso-kill-monitor-hook ()
+  (if (equal (buffer-name) fso-monitor-buffer)
+      (progn
+	(remove-hook 'kill-buffer-hook 'fso-kill-monitor-hook)
+	(cancel-timer fso-monitor-timer))))
+
+(defun fso-create-monitor-buffer ()
+  (with-current-buffer (get-buffer-create fso-monitor-buffer)
+    (fso-mode)
+    (setq buffer-read-only t)
+    (buffer-disable-undo)
+    (setq fso-monitor-timer
+	  (run-at-time 0 1 'fso-monitor-timer-handle))
+    (add-hook 'kill-buffer-hook 'fso-kill-monitor-hook)))
+
 (defmacro fso-do-in-list (buffer func &rest args)
   `(save-excursion
     (condition-case nil
@@ -894,6 +961,16 @@ method for answering a call during e.g. driving."
 (defun fso-gsm-get-network-status ()
   (fso-gsm-handle-status-change (fso-call-gsm-network "GetStatus")))
 
+(defun fso-gsm-get-serving-cell ()
+  (setq fso-gsm-current-serving-cell
+	(fso-dbus-dict-to-assoc
+	 (fso-call-gsm-monitor "GetServingCellInformation"))))
+
+(defun fso-gsm-get-neighbour-cells ()
+  (setq fso-gsm-current-neighbour-cells
+	(mapcar 'fso-dbus-dict-to-assoc
+		(fso-call-gsm-monitor "GetNeighbourCellInformation"))))
+
 (defun fso-pim-handle-unread-messages (amount)
   (setq fso-pim-current-unread-messages amount)
   (run-hooks 'fso-pim-unread-messages-hooks))
@@ -967,6 +1044,12 @@ method for answering a call during e.g. driving."
       (fso-create-calls-buffer))
   (switch-to-buffer fso-calls-buffer))
 
+(defun fso-gsm-show-monitor ()
+  (interactive)
+  (if (not (get-buffer fso-monitor-buffer))
+      (fso-create-monitor-buffer))
+  (switch-to-buffer fso-monitor-buffer))
+
 (defun fso-pim-show-calls ()
   (interactive)
   (if (not (get-buffer fso-calllist-buffer))
@@ -1026,6 +1109,10 @@ method for answering a call during e.g. driving."
 	   " "
 	   (propertize "Calls"
 		      'keymap '(keymap (header-line keymap (mouse-1 . fso-gsm-show-calls)))
+		      'mouse-face 'mode-line-highlight)
+	   " "
+	   (propertize "Monitor"
+		      'keymap '(keymap (header-line keymap (mouse-1 . fso-gsm-show-monitor)))
 		      'mouse-face 'mode-line-highlight))))
 
 (defun fso-kill-buffer-hook ()
