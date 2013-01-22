@@ -108,6 +108,9 @@
   "Provides information about current pdp (GPRS) status in an assoc list")
 (defvar fso-gsm-current-network-status-hooks nil
   "Hooks to run on network status change")
+(defvar fso-status-buffer-hook nil
+  "Hooks to run to change status buffer contents. Called with the current
+buffer set to status, r/w, positioned at the end of the standard status info.")
 (defvar fso-pim-current-unread-messages nil
   "The amount of currently unread messages")
 (defvar fso-pim-current-unread-messages-hooks nil
@@ -424,7 +427,8 @@ Message is an assoc list of (Field . Value)")
       (if fso-hooker-image
 	  (progn
 	    (insert "\n\n         ")
-	    (insert-image fso-hooker-image))))))
+	    (insert-image fso-hooker-image)))
+      (run-hooks 'fso-status-buffer-hook))))
 
 (defun fso-gsm-pdp-on (_b)
   (interactive)
