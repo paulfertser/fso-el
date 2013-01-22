@@ -476,7 +476,9 @@ Message is an assoc list of (Field . Value)")
     (fso-gsm-calls-add-new-id id status properties)
     (if fso-gsm-popup-calls
 	(if (fso-gsm-no-calls-p)
-	    (replace-buffer-in-windows fso-calls-buffer)
+	    (progn
+	     (replace-buffer-in-windows fso-calls-buffer)
+	     (bury-buffer fso-calls-buffer))
 	  (fso-gsm-show-calls))
       (if (not (get-buffer fso-calls-buffer))
 	  (fso-create-calls-buffer)))
