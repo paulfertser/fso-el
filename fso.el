@@ -1076,9 +1076,9 @@ method for answering a call during e.g. driving."
 	    (fso-gsm-set-functionality "full"))
 	(if fso-pdp-apn
 	    (fso-call-gsm-pdp "SetCredentials" fso-pdp-apn
-			      fso-pdp-username fso-pdp-password)))
-    (fso-gsm-get-network-status)
-    (setq fso-gsm-initialized t)))
+			      fso-pdp-username fso-pdp-password))
+	(fso-gsm-get-network-status)
+	(setq fso-gsm-initialized t))))
 
 (defun fso-create-status-buffer ()
     (switch-to-buffer fso-status-buffer)
