@@ -1,0 +1,5 @@
+(1
+ (fso .
+      [(0 2)
+       nil
+       "Emacs Interface to FreeSmartphone.Org API" single]))
